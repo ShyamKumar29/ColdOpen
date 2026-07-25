@@ -3,6 +3,11 @@ import type { Phase, ClockSource } from '@engines/controller'
 import type { ColdOpenStore } from './types'
 
 export interface PlaybackSlice {
+  /**
+   * Scene Controller transport state (writing → ready → playing → …).
+   * Distinct from `SceneSlice.status`, which tracks acquisition/validation
+   * of the scene data itself, upstream of playback ever starting.
+   */
   phase: Phase
   beatIndex: number
   isPlaying: boolean

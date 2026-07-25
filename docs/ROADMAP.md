@@ -23,13 +23,15 @@ Milestones are sequenced so the AI integration lands second-to-last. Every miles
 **Definition of Done:**
 - Seed script validates against the schema with no errors
 - Bus round-trips a typed event in a unit test
-- App builds and deploys to Vercel
+- App builds successfully with a clean local `npm run build`
+
+Deployment to Vercel is not in scope for Milestone 0; it is introduced alongside the serverless Groq proxy in Milestone 5 (ADR-014).
 
 ---
 
 ## Milestone 1 — Static Stage
 
-**Status:** Not Started
+**Status:** Complete
 
 **Objective:** A beautiful still frame rendered from JSON.
 
@@ -123,6 +125,12 @@ Milestones are sequenced so the AI integration lands second-to-last. Every miles
 - Tolerant preview parser feeding the "writing room" typewriter
 - Validation → repair → retry-once → seed-script fallback chain
 - Serverless proxy on Vercel so the API key never ships to the browser
+- Referential integrity validation in the normalizer:
+  - Validate `dialogue.characterId` exists in `cast`
+  - Validate `movement.characterId` exists in `cast`
+  - Validate `CameraDirection.target` references a valid character or supported preset
+  - Validate entrance and exit beat numbers are within scene bounds
+  - Introduce a shared `characterId` schema referenced by all `characterId` fields
 
 **Dependencies:** Milestone 2
 

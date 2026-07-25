@@ -1,12 +1,27 @@
+import { useEffect } from 'react'
+import { useColdOpenStore } from '@store'
+import { StageScreen } from '@features/stage'
+import { heistLibrary } from '@scenes'
+
 /**
- * App shell placeholder for Milestone 0.
- *
- * Wiring only, per docs/ARCHITECTURE.md section 5 — no feature UI (Stage,
- * Actors, Transport, etc.) is implemented here. That belongs to later
- * milestones.
+ * App shell (docs/ARCHITECTURE.md section 5) — wiring only. Milestone 1
+ * loads the seed script directly since Groq and the seed-fallback chain
+ * are Milestone 5 scope; the store is still the single source of truth the
+ * Stage renders from.
  */
 function App() {
-  return null
+  const script = useColdOpenStore((state) => state.script)
+  const setScript = useColdOpenStore((state) => state.setScript)
+  const setStatus = useColdOpenStore((state) => state.setStatus)
+
+  useEffect(() => {
+    setScript(heistLibrary)
+    setStatus('ready')
+  }, [setScript, setStatus])
+
+  if (!script) return null
+
+  return <StageScreen script={script} />
 }
 
 export default App

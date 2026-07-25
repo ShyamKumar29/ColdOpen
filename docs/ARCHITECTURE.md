@@ -212,7 +212,7 @@ graph TD
 | `scene` | `SceneHeader` | Where and when. |
 | `cast` | `Character[]` (1–3) | Speaking + silent presence. Cap at 3 for stage legibility. |
 | `beats` | `Beat[]` (4–12) | The performance. Ordered. |
-| `outro?` | `{ style: enum, text? }` | Cut-to-black / title-slam ending. |
+| `outro?` | `{ style: enum, text? }` | Ending treatment: `cutToBlack`, `titleSlam`, `fadeOut`, `holdOnActor`. |
 | `meta?` | open record | Forward-compat sink. Renderer ignores it. |
 
 ### `SceneHeader`
@@ -221,7 +221,7 @@ graph TD
 
 ### `Character`
 
-`id` (slug, stable) · `name` · `archetype` (enum: leader, rookie, mastermind, guard, stranger, rival, mentor, ghost — drives silhouette build + default pose) · `build?` (enum: slight, average, heavy, tall) · `voice` (`{ register: low|mid|high, rate: slow|normal|fast, accentHint? }`) · `entrance` (`{ beat: number, from: enum offLeft|offRight|shadow|above|already-present, style: enum walk|stride|creep|burst|fade }`) · `exit?` (`{ beat, to, style }`) · `silhouetteAccent?` (enum: hat, coat, briefcase, cane, cape, none)
+`id` (slug, stable) · `name` · `archetype` (enum: leader, rookie, mastermind, guard, stranger, rival, mentor, ghost — drives silhouette build + default pose) · `build?` (enum: slight, average, heavy, tall) · `voice` (`{ register: low|mid|high, rate: slow|normal|fast, accentHint? }`) · `entrance` (`{ beat: number, from: enum offLeft|offRight|shadow|above|already-present, style: enum walk|stride|creep|burst|fade }`) · `exit?` (`{ beat: number, to: enum offLeft|offRight|shadow|above, style: enum walk|stride|creep|burst|fade }`) · `silhouetteAccent?` (enum: hat, coat, briefcase, cane, cape, none)
 
 ### `Beat` — discriminated union on `type`
 

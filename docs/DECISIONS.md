@@ -225,3 +225,17 @@ This document captures the architectural decisions already made for Cold Open. I
 **Trade-offs:** Requires discipline to keep new fields optional-with-default rather than required, and to actually bump `version` on breaking changes.
 
 **Status:** Accepted
+
+---
+
+## ADR-017
+
+**Decision:** The Camera Engine (`engines/camera`) constructs and owns its Framer Motion `MotionValue`s directly, rather than being pure-TS and having a hook layer construct them.
+
+**Context:** CLAUDE.md's project structure rules state `engines/` must have "no React imports, ever," and this was reviewed during the Milestone 0 design pass (see `docs/ARCHITECTURE.md` §6, point 2) because it appears to conflict with that rule. Milestone 0 cleanup considered moving `MotionValue` construction into a `useCameraRig`-style hook so `engines/camera` would import nothing from `framer-motion`.
+
+**Reasoning:** `MotionValue` is not React — it has no dependency on React's runtime, renders nothing, and requires no component tree or hooks to exist. It is a plain, framework-independent mutable-value primitive that happens to ship from the `framer-motion` package. Splitting `MotionValue` construction into the hook layer would not remove a React dependency (there wasn't one); it would only relocate object construction across a layer boundary and force every consumer of the Camera Engine through an extra indirection to get a handle to state the engine itself must still update on every `applyMove`. The engine remains unit-testable in plain Node (`MotionValue.get()`/`.set()` work with no DOM or React tree), which is the actual property the "no React imports" rule protects.
+
+**Trade-offs:** The rule "no React imports in `engines/`" is enforced by an ESLint rule banning the `react` package specifically; it does not and should not ban `framer-motion`, since `MotionValue` construction is exactly the kind of engine-owned, framework-independent state the rule is meant to allow. Revisit only if a future engine needs `MotionValue`s without depending on `framer-motion` as a package (e.g., a non-web host), which is not a currently anticipated requirement.
+
+**Status:** Accepted

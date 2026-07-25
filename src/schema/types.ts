@@ -17,6 +17,15 @@ import type {
   musicDirectionSchema,
   particleDirectionSchema,
   movementSchema,
+  settingSchema,
+  timeOfDaySchema,
+  weatherSchema,
+  lightingPresetSchema,
+  stageSlotSchema,
+  facingSchema,
+  buildSchema,
+  silhouetteAccentSchema,
+  entranceSchema,
 } from './sceneScript.schema'
 
 export type SceneScript = z.infer<typeof sceneScriptSchema>
@@ -38,3 +47,13 @@ export type LightingDirection = z.infer<typeof lightingDirectionSchema>
 export type MusicDirection = z.infer<typeof musicDirectionSchema>
 export type ParticleDirection = z.infer<typeof particleDirectionSchema>
 export type Movement = z.infer<typeof movementSchema>
+
+export type Setting = z.infer<typeof settingSchema>
+export type TimeOfDay = z.infer<typeof timeOfDaySchema>
+export type Weather = z.infer<typeof weatherSchema>
+export type LightingPreset = z.infer<typeof lightingPresetSchema>
+export type StageSlot = z.infer<typeof stageSlotSchema>
+export type Facing = z.infer<typeof facingSchema>
+export type Build = z.infer<typeof buildSchema>
+export type SilhouetteAccent = z.infer<typeof silhouetteAccentSchema>
+export type Entrance = z.infer<typeof entranceSchema>

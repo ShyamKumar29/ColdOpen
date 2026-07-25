@@ -1,7 +1,14 @@
 /**
  * Design tokens: palette, lighting presets, silhouette geometry, type
- * scale, timing constants (docs/ARCHITECTURE.md section 5).
- *
- * Populated in Milestone 1 alongside the static stage.
+ * scale, timing constants (docs/ARCHITECTURE.md section 5). The single
+ * source of truth for how schema enum values map to visuals.
  */
-export {}
+export * from './palette'
+export * from './typography'
+export * from './spacing'
+export * from './layers'
+export * from './lighting'
+export * from './environments'
+export * from './silhouette'
+export * from './stageSlots'
+export * from './timing'

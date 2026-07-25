@@ -1,11 +1,10 @@
-import type { Character } from '@schema'
-
-export type StageSlot = 'farLeft' | 'left' | 'center' | 'right' | 'farRight'
+import type { Character, StageSlot, Facing } from '@schema'
 
 export interface CastMember {
   character: Character
   slot: StageSlot | null
+  facing: Facing
   pose: 'idle' | 'gesture'
 }
 
-export type { Character }
+export type { Character, StageSlot, Facing }
