@@ -96,7 +96,7 @@ Note the back-edge: the Speech Engine both *consumes* cues and *emits* clock eve
 | **Event Bus** | Typed pub/sub. `emit(event)`, `on(type, handler)`, `once`, `off`, wildcard tap for the debug overlay. | Ordering guarantees beyond synchronous FIFO; per-frame data; request/response. |
 | **JSON Parser / Validator** | Extract JSON from model output (fence stripping, brace balancing), Zod-validate, coerce and default unknown enums, produce a `SceneScript` or a typed failure. | Prompting; retry policy; knowing about the renderer. |
 | **Timeline Compiler** | Pure function `SceneScript → CueList`. Flattens beats, expands sugar (a dialogue line implicitly generates speech + subtitle + mouth + optional camera cues), sorts, freezes. | Time. It emits *anchors*, never wall-clock timestamps. |
-| **Scene Controller (Director)** | The transport and sequencer. Advances beats, fires cues at their offsets, exposes `play/pause/skip/restart`, drives the phase machine, owns the clock-source strategy (speech vs. timer). | Rendering; audio; knowing what a cue *does*. |
+| **Scene Controller (Director)** | The transport and sequencer. Advances beats, fires cues at their offsets, exposes `play/pause/restart`, drives the phase machine, owns the clock-source strategy (speech vs. timer). | Rendering; audio; knowing what a cue *does*. |
 | **Scene State Manager** | Single store of truth for durable state: phase, active `SceneScript`, cast roster + positions/poses, current caption, lighting preset, playback progress, user settings. | High-frequency transient values (camera matrix, mouth flap). |
 | **Speech Engine** | Wraps `speechSynthesis`. Voice selection/casting (pitch + rate per character), utterance queue, sentence-splitting for long lines, `onboundary` → viseme/mouth events, `onend` → `beat:complete`. Detects unavailability and reports it so the Controller can switch clocks. | Subtitles. Animation. |
 | **Dialogue Engine** | Turns a dialogue beat into an ordered plan: who speaks, parenthetical → gesture mapping, emphasis parsing, pacing/pauses between speakers. | Speaking (Speech). Displaying (Subtitle). |
@@ -119,7 +119,7 @@ src/
 │  │                       "DIRECT" button, loading theatre.
 │  ├─ stage/               The cinematic viewport and all its layers.
 │  ├─ subtitles/           Screenplay caption overlay.
-│  ├─ transport/           Play/restart/skip/mute HUD, progress bar.
+│  ├─ transport/           Play/restart/mute HUD, progress bar.
 │  └─ debug/               Dev-only: cue log, FPS, script inspector,
 │                          seed-script picker. Tree-shaken in prod.
 ├─ engines/                Zero React imports. Pure TS. Unit-tested.
@@ -258,7 +258,7 @@ That shared block is the key to expressiveness: any beat can carry any subsystem
 **Event taxonomy** (typed union, namespaced `domain:verb`):
 
 `scene:*` — requested, generated, validated, failed, compiled, ready
-`transport:*` — play, pause, restart, skip, complete
+`transport:*` — play, pause, restart, complete
 `beat:*` — enter, cues-fired, complete, exit
 `speech:*` — start, boundary, end, error, unavailable
 `camera:*` — move, shake, reset

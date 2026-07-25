@@ -52,7 +52,7 @@ Deployment to Vercel is not in scope for Milestone 0; it is introduced alongside
 
 ## Milestone 2 — Sequencer + Subtitles (Timer Clock)
 
-**Status:** Not Started
+**Status:** Complete
 
 **Objective:** The scene plays as a silent film with screenplay captions.
 
@@ -62,13 +62,14 @@ Deployment to Vercel is not in scope for Milestone 0; it is introduced alongside
 - Subtitle overlay
 - Slugline / title cards
 - Transport bar
-- Debug cue log
 
 **Dependencies:** Milestone 1
 
 **Definition of Done:**
 - Pressing play performs the full seed scene start to finish on estimated timings, with captions, pauses, and a clean ending
 - Restart is idempotent
+
+Debug cue log was deferred out of this milestone's scope and is carried over to Milestone 3.
 
 ---
 
@@ -83,6 +84,7 @@ Deployment to Vercel is not in scope for Milestone 0; it is introduced alongside
 - Utterance queue with sentence splitting
 - `onboundary` → subtitle reveal + mouth flap
 - Capability probe with automatic fallback to the timer clock
+- Debug cue log (carried over from Milestone 2)
 
 **Dependencies:** Milestone 2
 

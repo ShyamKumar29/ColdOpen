@@ -2,13 +2,25 @@
 
 ## Current Milestone
 
-Milestone 2 — Sequencer + Subtitles (Timer Clock)
+Milestone 3 — Speech Engine (Clock Handoff)
 
 ## Current Task
 
 Not started.
 
 ## Completed
+
+- Milestone 2 — Sequencer + Subtitles (Timer Clock):
+  - Timeline Compiler (`engines/timeline/compiler.ts`) implemented as a pure function: flattens `SceneScript.beats` into a frozen `CompiledBeat[]`, each with a deterministic `durationMs` (dialogue beats estimate reading time from line length, pause beats use their explicit `durationMs`, other beat types use fixed pacing constants — all plus `holdMs`) and the frozen list of entry cues (`subtitle:show/hide/slugline`, `light:change`, `character:enter/exit`) that fire the instant the beat starts. Cue payload types are pulled directly from `ColdOpenEventMap` (no duplicate type system) via a `CueKind` subset.
+  - Scene Controller (`engines/controller/sceneController.ts`) rewritten from the Milestone 0 scaffold into a real timer-clock sequencer: `load/play/resume/pause/stop/restart/seek/destroy`, plus `getPhase/getClockSource/getBeatIndex/getElapsedMs`. Uses one `setTimeout` per beat (never a 60Hz loop), tracks `remainingMs`/`beatEnteredAt` so pause/resume mid-beat is accurate, and stays framework-independent — it only touches the compiled timeline and the `EventBus`, never the store or React. `skip()` and `transport:skip` were removed in the post-review cleanup pass — no UI ever emitted them.
+  - `hooks/useSceneController.ts` — the React↔engine bridge (same lazy-`useState`-construct-once pattern as `useCastRoster`): subscribes to the controller's bus emissions and writes into `playbackSlice`/`presentationSlice` via their explicit setters. Transport controls call the returned `SceneController` directly rather than dispatching through the store, per the architecture's "TransportBar dispatches to controller" rule.
+  - `playbackSlice` gained `elapsedMs` (cumulative, updated once per beat — deliberately not a 60Hz value, see ADR-004) and `activeCharacters` (string ids, updated via `character:enter/exit`). `presentationSlice.caption`/`lightingPreset` renamed to `currentSubtitle` (a `{kind:'line'|'slugline', ...}` union carrying speaker id + parenthetical) and `currentLighting` (tightened from `string` to the `LightingPreset` schema type).
+  - `features/transport/TransportControls.tsx` replaces `StageScreen`'s disabled placeholder button — a stateless presenter driven by a `phase` prop and a `controller` prop, enabling/disabling Play/Resume/Pause/Stop/Restart based on phase.
+  - `features/subtitles/SubtitleOverlay.tsx` — reads `currentSubtitle`/`captionsOn` from the store, renders a slugline card or a screenplay dialogue block (speaker name resolved from `cast`, parenthetical, line). Mounted inside `Stage.tsx`.
+  - `Stage.tsx` now sources its lighting preset from `presentationSlice.currentLighting` (falling back to the Milestone 1 `deriveInitialLighting` static lookup only for the first paint before the controller's `load()` effect runs) — the only change to the Milestone 1 renderer; no rendering component (`Backdrop`, `LightingRig`, `ActorLayer`, etc.) was touched.
+  - Bus taxonomy: added `transport:stop` (Milestone 0 had play/pause/restart/skip/complete but nothing for a hard stop-and-reset) and an optional `parenthetical` field on `subtitle:show`. Tightened `light:change`/`light:flicker` payloads from `string` to the schema's `LightingPreset`/transition-literal types.
+  - Deferred, not in scope this milestone: the dev-mode debug cue log (ROADMAP lists it under Milestone 2, but it wasn't part of this session's explicit scope) and any renderer response to `activeCharacters` (entrances/exits as visual events are Milestone 4 scope).
+  - Verified: `format:check`, `lint`, `typecheck`, `test` (36 tests across timeline compiler + scene controller + existing suites), and `build` all pass with zero errors. Ran the app in a real browser: Play/Pause/Resume/Stop/Restart all produce the correct phase and stage state, subtitles advance through title → slugline → action → dialogue → pause → dialogue → reveal, lighting shifts (coldMoonlight → singleSpot → blackout) render live, zero console errors.
 
 - Milestone 1 — Static Stage:
   - Design tokens (`src/design/`): palette, typography, spacing/letterbox/stage proportions, z-index layer ordering, lighting presets (all 8 `LightingPreset` values art-directed with ambient/glow/vignette/contrast), environment backdrops (all 12 `Setting` values mapped to a horizon gradient + CSS-pattern motif, plus time-of-day brightness), silhouette geometry (all 4 `Build` values mapped to one of three shapes + scale), and stage slot positions (all 5 `StageSlot` values as percentages).
@@ -45,11 +57,11 @@ Not started.
 
 ## Next
 
-- Timeline Compiler (`SceneScript` → `CueList`) in `engines/timeline`.
-- SceneController with timer clock only.
-- Subtitle overlay, slugline/title cards.
-- Transport bar (replaces `StageScreen`'s disabled placeholder button).
-- Debug cue log.
+- Voice enumeration and casting per character (Speech Engine).
+- Utterance queue with sentence splitting.
+- `onboundary` → subtitle reveal + mouth flap.
+- Capability probe with automatic fallback to the Milestone 2 timer clock (`ClockSource: 'speech' | 'timer'` already exists in `engines/controller/types.ts`; the controller currently hardcodes `'timer'`).
+- Dev-mode debug cue log (carried over from Milestone 2's deliverable list; deferred, not implemented yet).
 
 ## Notes
 

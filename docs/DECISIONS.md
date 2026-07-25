@@ -239,3 +239,17 @@ This document captures the architectural decisions already made for Cold Open. I
 **Trade-offs:** The rule "no React imports in `engines/`" is enforced by an ESLint rule banning the `react` package specifically; it does not and should not ban `framer-motion`, since `MotionValue` construction is exactly the kind of engine-owned, framework-independent state the rule is meant to allow. Revisit only if a future engine needs `MotionValue`s without depending on `framer-motion` as a package (e.g., a non-web host), which is not a currently anticipated requirement.
 
 **Status:** Accepted
+
+---
+
+## ADR-018
+
+**Decision:** The Timeline Compiler estimates each beat's on-screen duration from its content (dialogue line length, an explicit pause `durationMs`, or a fixed per-type constant, plus `holdMs`) rather than the Scene Controller inventing timing at playback time. The Scene Controller schedules exactly one `setTimeout` per beat off that duration — never a per-frame loop — and tracks `remainingMs`/`beatEnteredAt` so pause/resume is accurate to the millisecond.
+
+**Context:** Milestone 2 has no Speech Engine yet (ADR-005's speech clock lands in Milestone 3), so something has to decide how long a silent scene holds on each beat. The duration also has to be deterministic, since Milestone 2's definition of done requires the same script to produce the same run every time.
+
+**Reasoning:** Putting the duration estimate in the compiler (not the controller) keeps "how long is this beat" a pure function of the `SceneScript`, consistent with the Timeline Compiler's existing responsibility for "computing timing information." It also gives Milestone 3 a clean seam: the Speech Engine will supply real utterance-derived durations for dialogue beats and the controller's clock-source strategy picks between the two, rather than the timer logic needing to be rewritten. A single `setTimeout` per beat (instead of a ticking interval) matches CLAUDE.md's Performance Rules — nothing about playback pacing needs 60Hz resolution, and `PlaybackSlice.elapsedMs` is deliberately updated once per beat, not every frame (ADR-004).
+
+**Trade-offs:** The duration heuristics (55ms/char for dialogue, fixed constants for title/slugline/action/reveal beats) are hand-tuned guesses with no basis in actual speech timing; they will very likely be replaced wholesale by real `onboundary`/`onend`-derived durations once the Speech Engine exists in Milestone 3, at which point this ADR's timer-clock path becomes the fallback rather than the only path (per ADR-005).
+
+**Status:** Accepted

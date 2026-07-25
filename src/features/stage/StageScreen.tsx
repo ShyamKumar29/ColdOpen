@@ -1,5 +1,8 @@
 import { palette, fontFamily, typeScale, spacing, stage as stageTokens } from '@design'
 import type { SceneScript } from '@schema'
+import { useSceneController } from '@hooks'
+import { useColdOpenStore } from '@store'
+import { TransportControls } from '@features/transport'
 import { Stage } from './Stage'
 
 export interface StageScreenProps {
@@ -8,10 +11,13 @@ export interface StageScreenProps {
 
 /**
  * The screen-level composition around the stage viewport: title, the
- * cinematic frame itself, and a minimal (non-functional) control area.
- * Real transport lands in `features/transport` starting Milestone 2.
+ * cinematic frame itself, and the transport HUD. Owns the Scene Controller
+ * for this playback session via `useSceneController`.
  */
 export function StageScreen({ script }: StageScreenProps) {
+  const controller = useSceneController(script)
+  const phase = useColdOpenStore((state) => state.phase)
+
   return (
     <div
       className="flex min-h-screen flex-col items-center"
@@ -51,21 +57,7 @@ export function StageScreen({ script }: StageScreenProps) {
         >
           {script.genre} &middot; {script.mood}
         </span>
-        <button
-          type="button"
-          disabled
-          style={{
-            ...typeScale.label,
-            fontFamily: fontFamily.mono,
-            color: palette.text.muted,
-            border: `1px solid ${palette.border.faint}`,
-            padding: `${spacing.xs} ${spacing.md}`,
-            textTransform: 'uppercase',
-            cursor: 'not-allowed',
-          }}
-        >
-          &#9654; Play &mdash; Milestone 2
-        </button>
+        <TransportControls phase={phase} controller={controller} />
       </footer>
     </div>
   )

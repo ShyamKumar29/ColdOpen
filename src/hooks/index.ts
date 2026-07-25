@@ -4,3 +4,4 @@
  * Structure Rules).
  */
 export * from './useCastRoster'
+export * from './useSceneController'

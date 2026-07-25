@@ -1,14 +1,36 @@
+import type { ColdOpenEventMap, ColdOpenEventName } from '@engines/bus'
+
 /**
- * A single flattened, anchored instruction produced by the Timeline
- * Compiler (docs/ARCHITECTURE.md section 4 and 7). Anchored to a beat
- * index plus a relative offset — never an absolute timestamp (ADR-007).
+ * The subset of the event taxonomy a compiled timeline can produce.
+ * Deliberately a subset, not the full `ColdOpenEventName` union — the
+ * compiler only emits playback-data cues; camera/particle/music directions
+ * are read straight off the `SceneScript` by their own engines starting
+ * Milestone 4+.
  */
-export interface Cue {
-  id: string
-  beatIndex: number
-  offsetMs: number
-  kind: string
-  payload: unknown
+export type CueKind =
+  | 'subtitle:show'
+  | 'subtitle:hide'
+  | 'subtitle:slugline'
+  | 'light:change'
+  | 'character:enter'
+  | 'character:exit'
+
+export interface Cue<TKind extends ColdOpenEventName = CueKind> {
+  readonly id: string
+  readonly beatIndex: number
+  readonly kind: TKind
+  readonly payload: ColdOpenEventMap[TKind]
 }
 
-export type CueList = readonly Cue[]
+export type AnyCue = { [K in CueKind]: Cue<K> }[CueKind]
+
+/** One beat, flattened and timed: how long it holds the stage, and what fires the instant it starts. */
+export interface CompiledBeat {
+  readonly index: number
+  readonly id: string
+  readonly durationMs: number
+  readonly cues: readonly AnyCue[]
+}
+
+/** The Timeline Compiler's frozen, ordered output — the single source of truth for scene playback. */
+export type CueList = readonly CompiledBeat[]

@@ -1,3 +1,7 @@
+import type { LightingPreset } from '@schema'
+
+type LightingTransition = 'cut' | 'fade' | 'flicker'
+
 /**
  * Event taxonomy for the Cold Open event bus (docs/ARCHITECTURE.md section 8).
  *
@@ -16,8 +20,8 @@ export interface ColdOpenEventMap {
 
   'transport:play': Record<string, never>
   'transport:pause': Record<string, never>
+  'transport:stop': Record<string, never>
   'transport:restart': Record<string, never>
-  'transport:skip': Record<string, never>
   'transport:complete': Record<string, never>
 
   'beat:enter': { index: number }
@@ -35,8 +39,8 @@ export interface ColdOpenEventMap {
   'camera:shake': { intensity: number }
   'camera:reset': Record<string, never>
 
-  'light:change': { preset: string; transition: string }
-  'light:flicker': { preset: string }
+  'light:change': { preset: LightingPreset; transition: LightingTransition }
+  'light:flicker': { preset: LightingPreset }
 
   'music:start': { mood: string }
   'music:mood': { mood: string }
@@ -51,7 +55,7 @@ export interface ColdOpenEventMap {
   'character:exit': { characterId: string }
   'character:mouth': { characterId: string; open: boolean }
 
-  'subtitle:show': { characterId?: string; text: string }
+  'subtitle:show': { characterId?: string; text: string; parenthetical?: string }
   'subtitle:hide': Record<string, never>
   'subtitle:slugline': { text: string }
 
