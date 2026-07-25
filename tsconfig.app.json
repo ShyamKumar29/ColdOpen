@@ -1,0 +1,57 @@
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+    "target": "es2023",
+    "lib": ["ES2023", "DOM"],
+    "module": "esnext",
+    "types": ["vite/client"],
+    "allowArbitraryExtensions": true,
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    /* Strictness */
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "forceConsistentCasingInFileNames": true,
+
+    /* Linting */
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true,
+
+    /* Path aliases */
+    "paths": {
+      "@": ["./src"],
+      "@/*": ["./src/*"],
+      "@engines": ["./src/engines"],
+      "@engines/*": ["./src/engines/*"],
+      "@features": ["./src/features"],
+      "@features/*": ["./src/features/*"],
+      "@ai": ["./src/ai"],
+      "@ai/*": ["./src/ai/*"],
+      "@schema": ["./src/schema"],
+      "@schema/*": ["./src/schema/*"],
+      "@store": ["./src/store"],
+      "@store/*": ["./src/store/*"],
+      "@scenes": ["./src/scenes"],
+      "@scenes/*": ["./src/scenes/*"],
+      "@design": ["./src/design"],
+      "@design/*": ["./src/design/*"],
+      "@hooks": ["./src/hooks"],
+      "@hooks/*": ["./src/hooks/*"],
+      "@lib": ["./src/lib"],
+      "@lib/*": ["./src/lib/*"],
+      "@app-types": ["./src/types"],
+      "@app-types/*": ["./src/types/*"]
+    }
+  },
+  "include": ["src"]
+}
