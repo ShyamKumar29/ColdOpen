@@ -40,7 +40,7 @@ export function Actor({ member, animations }: ActorProps) {
         style={{
           width: '100%',
           height: `${stageTokens.actorHeightFraction * 100}%`,
-          transform: `scale(${token.scaleX * flip}, ${token.scaleY})`,
+          transform: `scale(${token.scaleX * flip}, 1)`,
           transformOrigin: 'bottom center',
         }}
       >
@@ -48,7 +48,7 @@ export function Actor({ member, animations }: ActorProps) {
           className="h-full w-full"
           style={{ scale: handle.poseScale, transformOrigin: 'bottom center' }}
         >
-          <Silhouette shape={token.shape} className="h-full w-full" />
+          <Silhouette shape={token.shape} heightScale={token.scaleY} className="h-full w-full" />
         </motion.div>
       </div>
     </motion.div>

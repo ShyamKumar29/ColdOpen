@@ -13,7 +13,10 @@ import type {
   pauseBeatSchema,
   revealBeatSchema,
   cameraDirectionSchema,
+  cameraMoveSchema,
+  cameraIntensitySchema,
   lightingDirectionSchema,
+  lightingTransitionSchema,
   musicDirectionSchema,
   particleDirectionSchema,
   movementSchema,
@@ -43,7 +46,10 @@ export type PauseBeat = z.infer<typeof pauseBeatSchema>
 export type RevealBeat = z.infer<typeof revealBeatSchema>
 
 export type CameraDirection = z.infer<typeof cameraDirectionSchema>
+export type CameraMove = z.infer<typeof cameraMoveSchema>
+export type CameraIntensity = z.infer<typeof cameraIntensitySchema>
 export type LightingDirection = z.infer<typeof lightingDirectionSchema>
+export type LightingTransition = z.infer<typeof lightingTransitionSchema>
 export type MusicDirection = z.infer<typeof musicDirectionSchema>
 export type ParticleDirection = z.infer<typeof particleDirectionSchema>
 export type Movement = z.infer<typeof movementSchema>

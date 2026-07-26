@@ -119,23 +119,24 @@ Debug cue log was deferred out of this milestone's scope and is carried over to 
 
 ---
 
-## Milestone 5 — Camera & Lighting Transitions
+## Milestone 5 — Camera & Lighting Foundation
 
-**Status:** Not Started
+**Status:** Complete (one deliverable rescoped out — see below)
 
 **Objective:** The scene becomes cinematic rather than a slideshow. Character motion itself (pose/opacity/entrance/exit) was pulled forward into Milestone 3; this milestone is what's left — the camera and lighting.
 
 **Deliverables:**
 - Camera rig with named moves on a single composited node
-- Movement between stage slots (`beat.movements`) and gestures (`dialogueBeat.gesture`) — the two schema fields the Timeline Compiler still doesn't turn into cues
-- Lighting fades, flickers, blackout
-- Cut-to-black
+- Automatic camera framing: the Timeline Compiler derives a shot/focus for every beat from scene state (active speaker, cast size, reveal moments) — a script with no authored `beat.camera` still gets a fully directed camera path (ADR-024)
+- Lighting fades, flickers, blackout — `LightingRig` crossfades between presets rather than swapping instantly
+- Cut-to-black — the `blackout` preset's `cut` transition
+- Rescoped out of this milestone's original wording (ADR-025): "movement between stage slots (`beat.movements`) and gestures (`dialogueBeat.gesture`)" — both remain unwired schema fields, deferred to a later milestone
 
 **Dependencies:** Milestone 4
 
 **Definition of Done:**
 - Sustained 60fps with camera movement, two actors, and a lighting change simultaneously
-- `prefers-reduced-motion` degradation path works correctly for camera moves specifically (character-transition degradation already landed in Milestone 3)
+- `prefers-reduced-motion` degradation path works correctly for camera moves specifically (character-transition degradation already landed in Milestone 3) — every camera move collapses to a cut; lighting transitions collapse to an instant swap
 
 ---
 

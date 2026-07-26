@@ -4,6 +4,8 @@ import { createSceneController } from '@engines/controller'
 import type { SceneController } from '@engines/controller'
 import { createAnimationEngine } from '@engines/animation'
 import type { AnimationEngine } from '@engines/animation'
+import { createCameraEngine } from '@engines/camera'
+import type { CameraRig } from '@engines/camera'
 import { createSpeechEngine } from '@engines/speech'
 import type { SpeechEngine } from '@engines/speech'
 import { poseTokens } from '@design'
@@ -13,27 +15,29 @@ import { useColdOpenStore } from '@store'
 export interface SceneControllerBridge {
   controller: SceneController
   animations: AnimationEngine
+  camera: CameraRig
   speech: SpeechEngine
 }
 
 /**
- * Bridges the Scene Controller and Animation Engine to the store and to
- * `<Stage>` (CLAUDE.md React Rules — "Hooks are the only bridge between
- * React and engines"). The bus, controller, and animation engine are
- * constructed once via lazy `useState` initializers and never recreated on
- * render.
+ * Bridges the Scene Controller, Animation Engine, and Camera Engine to the
+ * store and to `<Stage>` (CLAUDE.md React Rules — "Hooks are the only
+ * bridge between React and engines"). All three are constructed once via
+ * lazy `useState` initializers and never recreated on render.
  *
- * Transport controls call the returned `SceneController` directly. The
- * `AnimationEngine`'s `MotionValue`s never touch the store (CLAUDE.md State
- * Management Rules) — this hook only relays discrete `character:*` cues
- * into engine calls and drives its `tick()` off a `requestAnimationFrame`
- * loop; `<Actor>` reads the resulting `MotionValue`s directly.
+ * Transport controls call the returned `SceneController` directly. Neither
+ * engine's `MotionValue`s ever touch the store (CLAUDE.md State Management
+ * Rules) — this hook only relays discrete `character:*`/`camera:move` cues
+ * into engine calls and drives both engines' `tick()` off one shared
+ * `requestAnimationFrame` loop; `<Actor>`/`<CameraFrame>` read the resulting
+ * `MotionValue`s directly.
  */
 export function useSceneController(script: SceneScript | null): SceneControllerBridge {
   const [bus] = useState(() => createEventBus())
   const [speech] = useState(() => createSpeechEngine(bus))
   const [controller] = useState(() => createSceneController(bus, speech))
   const [animations] = useState(() => createAnimationEngine())
+  const [camera] = useState(() => createCameraEngine())
 
   const setPhase = useColdOpenStore((state) => state.setPhase)
   const setBeatIndex = useColdOpenStore((state) => state.setBeatIndex)
@@ -60,7 +64,10 @@ export function useSceneController(script: SceneScript | null): SceneControllerB
       ),
       bus.on('subtitle:hide', () => setCurrentSubtitle(null)),
       bus.on('subtitle:slugline', ({ text }) => setCurrentSubtitle({ kind: 'slugline', text })),
-      bus.on('light:change', ({ preset }) => setCurrentLighting(preset)),
+      bus.on('light:change', ({ preset, transition, durationMs }) =>
+        setCurrentLighting(preset, transition, durationMs),
+      ),
+      bus.on('camera:move', (cue) => camera.applyMove(cue, reducedMotion)),
       bus.on('character:enter', ({ characterId }) => {
         const active = useColdOpenStore.getState().activeCharacters
         if (!active.includes(characterId)) setActiveCharacters([...active, characterId])
@@ -101,6 +108,7 @@ export function useSceneController(script: SceneScript | null): SceneControllerB
     bus,
     controller,
     animations,
+    camera,
     speech,
     reducedMotion,
     setPhase,
@@ -128,12 +136,13 @@ export function useSceneController(script: SceneScript | null): SceneControllerB
   useEffect(() => {
     let frame = requestAnimationFrame(function step(now) {
       animations.tick(now)
+      camera.tick(now)
       frame = requestAnimationFrame(step)
     })
     return () => cancelAnimationFrame(frame)
-  }, [animations])
+  }, [animations, camera])
 
   useEffect(() => () => controller.destroy(), [controller])
 
-  return { controller, animations, speech }
+  return { controller, animations, camera, speech }
 }

@@ -1,5 +1,6 @@
 import { palette } from '@design'
 import type { SilhouetteShape } from '@design'
+import { computeRaisedHipY } from './silhouetteGeometry'
 
 interface ShapeGeometry {
   headR: number
@@ -65,6 +66,17 @@ const SHAPES: Record<SilhouetteShape, ShapeGeometry> = {
 
 export interface SilhouetteProps {
   shape: SilhouetteShape
+  /**
+   * Build-driven height variance (`design/silhouette.ts` `scaleY`), applied
+   * as leg length rather than a whole-figure scale. Legs stretch from the
+   * fixed floor line up to a raised hip; the torso/arms/head translate
+   * rigidly by that same amount instead of scaling, so every build shares
+   * the same head size and the same neutral head height baseline — a taller
+   * build still reads taller (longer legs, head sits a bit higher), but
+   * doesn't drag its head disproportionately toward the frame's top edge the
+   * way scaling the entire figure from the feet did.
+   */
+  heightScale?: number
   className?: string
 }
 
@@ -119,10 +131,18 @@ function Limb({
  * shape carries a thin `silhouette.rim` edge (`design/palette.ts`) so the
  * figure separates from the backdrop without brightening the scene itself.
  */
-export function Silhouette({ shape, className }: SilhouetteProps) {
+export function Silhouette({ shape, heightScale = 1, className }: SilhouetteProps) {
   const g = SHAPES[shape]
   const fill = palette.silhouette.fill
   const rim = palette.silhouette.rim
+
+  // Both legs share a hip y and a floor y per shape (see SHAPES above), so
+  // the stretch anchors cleanly: the foot stays put, the hip rises, and the
+  // torso/arms/head group translates up by the identical amount to sit
+  // flush on top of the now-longer legs.
+  const hipY = g.legLeft[1]
+  const floorY = g.legLeft[3]
+  const raisedHipY = computeRaisedHipY(hipY, floorY, heightScale)
 
   return (
     <svg
@@ -132,8 +152,18 @@ export function Silhouette({ shape, className }: SilhouetteProps) {
       aria-hidden="true"
       preserveAspectRatio="xMidYMax meet"
     >
-      <Limb coords={g.legLeft} strokeWidth={g.legStrokeWidth} fill={fill} rim={rim} />
-      <Limb coords={g.legRight} strokeWidth={g.legStrokeWidth} fill={fill} rim={rim} />
+      <Limb
+        coords={[g.legLeft[0], raisedHipY, g.legLeft[2], g.legLeft[3]]}
+        strokeWidth={g.legStrokeWidth}
+        fill={fill}
+        rim={rim}
+      />
+      <Limb
+        coords={[g.legRight[0], raisedHipY, g.legRight[2], g.legRight[3]]}
+        strokeWidth={g.legStrokeWidth}
+        fill={fill}
+        rim={rim}
+      />
       <ellipse
         cx={g.legLeft[2]}
         cy={g.legLeft[3] + 2}
@@ -152,16 +182,25 @@ export function Silhouette({ shape, className }: SilhouetteProps) {
         stroke={rim}
         strokeWidth={RIM_WIDTH}
       />
-      <Limb coords={g.armLeft} strokeWidth={g.armStrokeWidth} fill={fill} rim={rim} />
-      <Limb coords={g.armRight} strokeWidth={g.armStrokeWidth} fill={fill} rim={rim} />
-      <polygon
-        points={g.torsoPoints}
-        fill={fill}
-        stroke={rim}
-        strokeWidth={RIM_WIDTH}
-        strokeLinejoin="round"
-      />
-      <circle cx={60} cy={g.headCy} r={g.headR} fill={fill} stroke={rim} strokeWidth={RIM_WIDTH} />
+      <g transform={`translate(0, ${raisedHipY - hipY})`}>
+        <Limb coords={g.armLeft} strokeWidth={g.armStrokeWidth} fill={fill} rim={rim} />
+        <Limb coords={g.armRight} strokeWidth={g.armStrokeWidth} fill={fill} rim={rim} />
+        <polygon
+          points={g.torsoPoints}
+          fill={fill}
+          stroke={rim}
+          strokeWidth={RIM_WIDTH}
+          strokeLinejoin="round"
+        />
+        <circle
+          cx={60}
+          cy={g.headCy}
+          r={g.headR}
+          fill={fill}
+          stroke={rim}
+          strokeWidth={RIM_WIDTH}
+        />
+      </g>
     </svg>
   )
 }

@@ -190,6 +190,88 @@ describe('compileTimeline', () => {
     )
   })
 
+  it('emits exactly one camera:move cue per beat, with all four fields resolved', () => {
+    const timeline = compileTimeline(heistLibrary)
+
+    timeline.forEach((beat) => {
+      const cameraCues = beat.cues.filter((cue) => cue.kind === 'camera:move')
+      expect(cameraCues).toHaveLength(1)
+      const payload = cameraCues[0]?.payload
+      expect(payload).toMatchObject({
+        move: expect.any(String),
+        shot: expect.any(String),
+        focus: expect.any(String),
+        intensity: expect.any(String),
+      })
+    })
+  })
+
+  it('is deterministic in its camera derivation — the same script compiles to the same camera path twice', () => {
+    const first = compileTimeline(heistLibrary).map(
+      (beat) => beat.cues.find((cue) => cue.kind === 'camera:move')?.payload,
+    )
+    const second = compileTimeline(heistLibrary).map(
+      (beat) => beat.cues.find((cue) => cue.kind === 'camera:move')?.payload,
+    )
+
+    expect(second).toEqual(first)
+  })
+
+  it('frames a single active speaker close and centered when no camera direction is authored', () => {
+    const script: SceneScript = {
+      ...heistLibrary,
+      cast: [heistLibrary.cast[0]!],
+      beats: heistLibrary.beats.map((beat) =>
+        beat.type === 'dialogue'
+          ? { ...beat, characterId: heistLibrary.cast[0]!.id, camera: undefined }
+          : beat,
+      ),
+    }
+
+    const timeline = compileTimeline(script)
+    const dialogueIndex = script.beats.findIndex((beat) => beat.type === 'dialogue')
+    const payload = timeline[dialogueIndex]?.cues.find((cue) => cue.kind === 'camera:move')?.payload
+
+    expect(payload).toMatchObject({ shot: 'close', focus: 'center' })
+  })
+
+  it('frames a reveal beat with a dramatic, wide-focus shot when no camera direction is authored', () => {
+    const script: SceneScript = {
+      ...heistLibrary,
+      beats: heistLibrary.beats.map((beat) =>
+        beat.type === 'reveal' ? { ...beat, camera: undefined } : beat,
+      ),
+    }
+
+    const timeline = compileTimeline(script)
+    const revealIndex = script.beats.findIndex((beat) => beat.type === 'reveal')
+    const payload = timeline[revealIndex]?.cues.find((cue) => cue.kind === 'camera:move')?.payload
+
+    expect(payload).toMatchObject({ shot: 'reveal', focus: 'wide', intensity: 'dramatic' })
+  })
+
+  it('keeps the dramatic reveal shot even when the beat authors its own camera move', () => {
+    const timeline = compileTimeline(heistLibrary)
+    const revealIndex = heistLibrary.beats.findIndex((beat) => beat.type === 'reveal')
+    const revealBeat = heistLibrary.beats[revealIndex]
+    if (!revealBeat || revealBeat.type !== 'reveal' || !revealBeat.camera) {
+      throw new Error('expected the seed script reveal beat to author a camera direction')
+    }
+    const payload = timeline[revealIndex]?.cues.find((cue) => cue.kind === 'camera:move')?.payload
+
+    expect(payload).toMatchObject({ move: revealBeat.camera.move, shot: 'reveal' })
+  })
+
+  it('respects an authored camera direction, filling in shot/focus rather than overriding move/intensity', () => {
+    const timeline = compileTimeline(heistLibrary)
+    const authoredIndex = heistLibrary.beats.findIndex(
+      (beat) => beat.camera?.move === 'pushIn' && beat.camera.target === 'vera',
+    )
+    const payload = timeline[authoredIndex]?.cues.find((cue) => cue.kind === 'camera:move')?.payload
+
+    expect(payload).toMatchObject({ move: 'pushIn', shot: 'close' })
+  })
+
   it('freezes the timeline and every compiled beat', () => {
     const timeline = compileTimeline(heistLibrary)
 

@@ -316,6 +316,48 @@ This document captures the architectural decisions already made for Cold Open. I
 
 ---
 
+## ADR-024
+
+**Decision:** The camera's framing — `CameraShot` (`wide`/`medium`/`close`/`twoShot`/`overShoulder`/`reveal`) and `CameraFocus` (`left`/`center`/`right`/`wide`) — is not schema data. It is derived purely from beat content by the Timeline Compiler and carried on the `camera:move` cue, the same way `CharacterPose` already is (ADR-019).
+
+**Context:** Milestone 5 needed the camera to read as directed cinematography — pushing in on a lone speaker, favoring an over-the-shoulder framing with two characters present, punching into a tight dramatic shot on a reveal — without requiring every seed script or future AI-generated scene to author a `camera` direction on every beat (CLAUDE.md: "do not require camera data in SceneScript"). `beat.camera` (`CameraDirection`) already exists in the schema as an optional per-beat override, but a script author only supplies `move`/`target`/`intensity`, not "how tight should this read" or "which side of the stage."
+
+**Reasoning:** Treating shot/focus as compiler-derived state, exactly like `poseForBeat` derives `CharacterPose` (ADR-019), means the Camera Engine stays a pure interpolator — it maps a resolved `{move, shot, focus, intensity}` cue to `{x, y, zoom}` via `design/camera.ts`'s token tables and never reasons about characters, cast size, or beat types itself (keeping `engines/camera` decoupled from `engines/character` and `engines/timeline`, per CLAUDE.md's "never tightly couple engines"). When a beat does author `beat.camera`, its `move`/`target`/`intensity`/`durationMs` take precedence field-by-field over the automatic derivation, but the automatic framing still fills in whatever the author left unspecified — so a fully hand-authored scene and a scene with zero camera data both compile to a complete camera path, and the same `SceneScript` always produces the same one (Milestone 5's determinism requirement).
+
+**Trade-offs:** A reveal beat's shot is always `'reveal'` regardless of the beat's authored `move` — a deliberate exception (the beat type is a stronger signal of dramatic intent than which move got the camera there) that meant the seed script's `whipPan` reveal, which would otherwise have mapped to a generic `'wide'` shot via the move→shot table, now correctly reads as the tightest, most dramatic framing. Any future beat type needing a shot vocabulary this table doesn't already derive requires a code change in the compiler, not a schema change — the same trade ADR-019 already accepted for pose.
+
+**Status:** Accepted
+
+---
+
+## ADR-025
+
+**Decision:** `beat.movements` (moving a character between stage slots) and `dialogueBeat.gesture` (a spoken line's parenthetical gesture) remain unwired past Milestone 5, despite `docs/ROADMAP.md`'s prior wording listing both as this milestone's deliverables.
+
+**Context:** The Milestone 5 task brief for this session explicitly scoped out "gesture animation" and "body movement," while the then-current `docs/ROADMAP.md` text (written during the Milestone 3 reshuffle, ADR-019/ADR-020's sibling decision) still described Milestone 5 as covering "movement between stage slots and gestures... the two schema fields the Timeline Compiler still doesn't turn into cues," alongside camera and lighting.
+
+**Reasoning:** Implementing camera and lighting well — automatic framing derived from scene state, a real crossfade-capable `LightingRig`, `CameraFrame` as the single composited transform — was already the full scope of a foundation milestone on its own; folding in a second, unrelated animation system (limb/stage-position choreography) in the same pass would have diluted both rather than shipping either well. `engines/character`'s `assignSlot` method and the `character:move`/`character:gesture` bus events already exist as the seam for this future work to slot into without a redesign.
+
+**Trade-offs:** `docs/ROADMAP.md`'s Milestone 5 entry is corrected to reflect what actually shipped; movements/gestures have no assigned milestone yet and will need one before Groq-generated scenes can rely on them reading as anything other than static blocking.
+
+**Status:** Accepted
+
+---
+
+## ADR-026
+
+**Decision:** A character's build-driven height variance (`design/silhouette.ts`'s `scaleY`) is expressed in `Silhouette.tsx` as leg-length translation — legs stretch from a fixed floor line up to a raised hip, and the torso/arms/head group translates rigidly by that same amount — rather than as a whole-figure CSS `scale()` from a bottom-center transform origin, which is how `Actor.tsx` previously applied it.
+
+**Context:** `Actor.tsx` used to apply `token.scaleY` as `transform: scale(x, scaleY)` on the whole assembled silhouette, anchored bottom-center. A bottom-anchored whole-figure scale stretches every part of the figure by the same factor, including the distance from the floor to the top of the head — so a `tall` build (`scaleY: 1.08`) didn't just have longer legs, it had a head positioned 8% higher than an `average` build's, and a proportionally larger head, on top of that. Combined with `ADR-023`'s pose scale, this is what produced inconsistent headroom across builds: the stage's `actorHeightFraction` had to be sized for the worst-case combination, and taller builds still read as "scaled up" rather than "taller" — a subtly wrong cinematic result even where clipping didn't occur.
+
+**Reasoning:** A real person's height difference lives almost entirely in leg length and torso length, not head size — heads vary far less than bodies across individuals. Translating only the legs (foot fixed at the floor line, hip raised by `(floorY - hipY) * (heightScale - 1)`, everything above the hip rigidly translated by that same offset) reproduces this: every build shares an identical head size and an identical neutral head-to-hip proportion, and a taller build reads as taller through longer legs and a correspondingly higher (but not larger) head, rather than through uniform enlargement. This also keeps the fix at the correct architectural layer — actor geometry is `Silhouette`/`Actor`'s concern alone. The Camera Engine and Timeline Compiler were deliberately left untouched (no camera framing or auto-framing logic was added to compensate for build height): the camera reasons only about beat content, active speaker, and cast size (ADR-024), never about an individual actor's silhouette geometry. Fixing the actual geometry at its source, instead of nudging camera `y`/zoom to paper over a taller silhouette's head position, keeps the Camera Engine decoupled from `engines/character`/`features/stage` exactly as ADR-024 requires.
+
+**Trade-offs:** `design/spacing.ts`'s `actorHeightFraction` still derives its safety margin from the raw `scaleY` value (see the comment there), which is now a conservative overestimate rather than a tight bound — leg-only stretch raises the head by less than a full `scaleY` would, so the actual worst-case headroom need is smaller than what `actorHeightFraction` budgets for. This is intentional (a safe upper bound is cheap insurance against future token-table changes) but means characters render very slightly smaller than the tightest-possible-safe size. `Silhouette`'s SVG viewBox coordinates (hip/floor y-values) are shared, per-shape constants (`SHAPES` in `Silhouette.tsx`) that the translation math depends on; changing a shape's leg geometry without checking both legs still share the same hip/floor y would silently break the stretch anchor.
+
+**Status:** Accepted
+
+---
+
 ## ADR-018
 
 **Decision:** The Timeline Compiler estimates each beat's on-screen duration from its content (dialogue line length, an explicit pause `durationMs`, or a fixed per-type constant, plus `holdMs`) rather than the Scene Controller inventing timing at playback time. The Scene Controller schedules exactly one `setTimeout` per beat off that duration — never a per-frame loop — and tracks `remainingMs`/`beatEnteredAt` so pause/resume is accurate to the millisecond.

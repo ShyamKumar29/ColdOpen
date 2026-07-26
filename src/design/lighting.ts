@@ -1,4 +1,5 @@
-import type { LightingPreset } from '@schema'
+import type { LightingPreset, LightingTransition } from '@schema'
+import { durations } from './timing'
 
 /**
  * Art direction for every `LightingPreset` enum value (CLAUDE.md JSON
@@ -76,3 +77,24 @@ export const lightingTokens: Record<LightingPreset, LightingToken> = {
 }
 
 export const DEFAULT_LIGHTING_PRESET: LightingPreset = 'warmInterior'
+
+/**
+ * Default crossfade duration per `LightingTransition` style, used whenever a
+ * beat's `LightingDirection` doesn't specify an explicit `durationMs`
+ * (CLAUDE.md Animation Rules — timing values defined once in `design/`).
+ * `cut` is instantaneous (a hard scene change or cut-to-black); `fade` and
+ * `flicker` share the same crossfade duration, `flicker` layering extra
+ * opacity keyframes on top rather than a different length.
+ */
+export const lightingTransitionTokens: Record<LightingTransition, { durationMs: number }> = {
+  cut: { durationMs: 0 },
+  fade: { durationMs: durations.slow },
+  flicker: { durationMs: durations.normal },
+}
+
+/** `prefers-reduced-motion` degradation: every transition becomes a same-frame cut, flicker included (CLAUDE.md — lighting stays functional, just not animated). */
+export const reducedLightingTransitionTokens: Record<LightingTransition, { durationMs: number }> = {
+  cut: { durationMs: 0 },
+  fade: { durationMs: 0 },
+  flicker: { durationMs: 0 },
+}

@@ -22,6 +22,20 @@ function slotsForCastSize(size: number): readonly StageSlot[] {
 }
 
 /**
+ * The same deterministic cast-order -> slot layout `register()` uses,
+ * exposed as a standalone pure function so other engines that need to know
+ * "which side of the stage is this character on" (the Timeline Compiler's
+ * automatic camera framing, Milestone 5) can reuse it instead of
+ * re-deriving slot assignment themselves.
+ */
+export function resolveInitialSlots(
+  cast: readonly Character[],
+): ReadonlyMap<string, StageSlot | null> {
+  const slots = slotsForCastSize(cast.length)
+  return new Map(cast.map((character, index) => [character.id, slots[index] ?? null]))
+}
+
+/**
  * A character entering from off-left or from the shadows reads as moving
  * rightward into the scene, so it faces right; the mirror holds for
  * off-right. Characters already present or descending face the audience.
@@ -45,19 +59,20 @@ function facingForEntrance(from: Entrance['from']): Facing {
  *
  * Slot order is stable and derived purely from cast order, so re-registering
  * the same script always produces the same layout. Movement between slots
- * (Milestone 4) will call `assignSlot` again as beats replace this initial
- * placement.
+ * (`beat.movements`) is deferred past Milestone 5 (docs/DECISIONS.md
+ * ADR-025) — `assignSlot` exists for that future work to call as beats
+ * replace this initial placement.
  */
 export function createCharacterEngine(): CharacterEngine {
   const slotAssignments = new Map<string, StageSlot>()
 
   return {
     register(cast) {
-      const slots = slotsForCastSize(cast.length)
+      const slots = resolveInitialSlots(cast)
       slotAssignments.clear()
 
-      return cast.map((character, index) => {
-        const slot = slots[index] ?? null
+      return cast.map((character) => {
+        const slot = slots.get(character.id) ?? null
         if (slot) slotAssignments.set(character.id, slot)
 
         return {

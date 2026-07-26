@@ -19,14 +19,23 @@ export const borders = {
   radius: '2px',
 } as const
 
-// `Actor` scales a character's silhouette box twice, both anchored to a
-// bottom-center transform origin: build (`silhouetteTokens[...].scaleY`,
-// e.g. 'tall') and pose (`poseTokens[...].scale`, e.g. 'surprised'). A
-// bottom-anchored scale > 1 stretches the box *upward* with no matching
-// layout resize, so the actor's allotted height must leave enough headroom
-// above an unscaled silhouette that even the largest build+pose combination
-// never paints past the stage's `overflow-hidden` top edge — this is
-// computed from the actual token values, not a hand-tuned guess, so it
+// `Actor` grows a character's silhouette box in two ways: build
+// (`silhouetteTokens[...].scaleY`, e.g. 'tall') stretches leg length only,
+// anchored at the floor (see `Silhouette`'s `heightScale`, docs/DECISIONS.md
+// ADR-026), while pose (`poseTokens[...].scale`, e.g. 'surprised') scales the
+// whole assembled figure from a bottom-center transform origin.
+//
+// Leg-only stretch raises the head by less than a full `scaleY` would — the
+// actual worst-case headroom need is smaller than what this formula budgets
+// for. Multiplying by the raw `scaleY` here is therefore a deliberately
+// conservative safe upper bound, not a tight/exact geometric limit: it
+// slightly over-reserves headroom (characters render a touch smaller than
+// the tightest possible safe size) in exchange for staying correct if either
+// token table's values change without anyone re-deriving the exact
+// leg-translation headroom by hand. The actor's allotted height must leave
+// enough headroom above an unscaled silhouette that even the largest
+// build+pose combination never paints past the stage's `overflow-hidden` top
+// edge. Computed from the actual token values, not a hand-tuned guess, so it
 // can't silently go stale if either token table changes.
 const maxCombinedVerticalScale =
   Math.max(...Object.values(silhouetteTokens).map((token) => token.scaleY)) *

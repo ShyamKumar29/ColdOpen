@@ -1,6 +1,4 @@
-import type { LightingPreset } from '@schema'
-
-type LightingTransition = 'cut' | 'fade' | 'flicker'
+import type { CameraIntensity, CameraMove, LightingPreset, LightingTransition } from '@schema'
 
 /**
  * A character's derived, runtime-only performance state — never schema
@@ -9,6 +7,17 @@ type LightingTransition = 'cut' | 'fade' | 'flicker'
  * `engines/animation` both import it rather than redeclaring it.
  */
 export type CharacterPose = 'idle' | 'speaking' | 'listening' | 'surprised' | 'thinking'
+
+/**
+ * The camera's derived framing vocabulary — never schema data, same
+ * reasoning as `CharacterPose` (docs/DECISIONS.md ADR-024). `CameraShot` is
+ * how tight the frame is; `CameraFocus` is which side of the stage it's
+ * centered on. Both are computed per beat by the Timeline Compiler from
+ * scene state (active speaker, cast size, reveal moments) and consumed by
+ * the Camera Engine, which never reasons about characters or beats itself.
+ */
+export type CameraShot = 'wide' | 'medium' | 'close' | 'twoShot' | 'overShoulder' | 'reveal'
+export type CameraFocus = 'left' | 'center' | 'right' | 'wide'
 
 /**
  * Event taxonomy for the Cold Open event bus (docs/ARCHITECTURE.md section 8).
@@ -45,11 +54,18 @@ export interface ColdOpenEventMap {
   'speech:error': { characterId: string; message: string }
   'speech:unavailable': Record<string, never>
 
-  'camera:move': { move: string; target?: string }
+  /** The only cue that retargets the camera (one authoritative emitter, docs/ARCHITECTURE.md section 8). Fully resolved by the Timeline Compiler — the Camera Engine never looks up a character or beat itself. */
+  'camera:move': {
+    move: CameraMove
+    shot: CameraShot
+    focus: CameraFocus
+    intensity: CameraIntensity
+    durationMs?: number
+  }
   'camera:shake': { intensity: number }
   'camera:reset': Record<string, never>
 
-  'light:change': { preset: LightingPreset; transition: LightingTransition }
+  'light:change': { preset: LightingPreset; transition: LightingTransition; durationMs?: number }
   'light:flicker': { preset: LightingPreset }
 
   'music:start': { mood: string }
