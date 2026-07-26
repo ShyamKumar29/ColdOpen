@@ -397,3 +397,40 @@ This document captures the architectural decisions already made for Cold Open. I
 **Trade-offs:** None of consequence — the fix is a straightforward loop with the same per-chunk decode/split/enqueue logic as before, no new dependencies, no change to the response shape or headers, and `groqStream.ts`/`createScene.ts` are both unaware anything changed. The fix does not, by itself, prove the live-Groq path now works end-to-end against the real API (still blocked on a deployed `GROQ_API_KEY`); it removes the specific defect that was guaranteed to break it every time.
 
 **Status:** Accepted
+
+---
+
+## ADR-029
+
+**Decision:** An untrusted candidate document passes through a **pre-validation coercion layer** (`schema/coerce/`) before `sceneScriptSchema.safeParse`, not after. The layer resolves out-of-vocabulary enum values through a four-step ladder (exact member → canonical member → curated alias → longest embedded member) and fills in bookkeeping the renderer can derive, then hands the result to the *same* Zod parse and referential-integrity check every `SceneScript` has always gone through. Alongside it, the `setting`, `genre`, and `mood` vocabularies were expanded, and `beats[].id` was removed from what the model is asked to author.
+
+**Context:** With a live `GROQ_API_KEY` finally available, the ingestion path was measured against 16 real `llama-3.3-70b-versatile` responses for the first time (ADR-028 had removed the stream stall that previously made this impossible to observe). **Only 4 of 16 validated.** The other 12 were discarded and replaced by the `heist-library` seed script — the user-visible bug: the Writing Room showed "Echoes at Sea / Lighthouse / Drama", then the Stage performed the heist demo. The failures were not creative failures. Counted across the corpus:
+
+| Cause | Occurrences |
+|---|---|
+| `beats[].id` absent | 61 |
+| `null` written for an absent optional field (`weather`, `exit`, `build`, `silhouetteAccent`, `parenthetical`, `establishingText`, `outro.text`) | 12 |
+| enum value borrowed from a sibling enum (`entrance.style: "stand"`, `"none"`) | 3 |
+| `setting` outside the 12-value enum (`"lighthouse"`, `"hotel"`, `"bunker"`) | 3 |
+| beat `type` outside the union (`"music"`) | 2 |
+| string longer than its schema maximum | 1 |
+
+Every one of these is *miscoded* content, not *missing* content — the scene the model wrote was fine, and was thrown away over an id it had no reason to invent and a `null` that means exactly what `undefined` means.
+
+**Reasoning:** CLAUDE.md's JSON Schema Rules and ADR-015 both already required that "unknown or invalid enum values are normalized to a defined default, never thrown as fatal errors in the render path." That was never implemented — `validateSceneScript` failed hard on the first unknown enum. It *cannot* be implemented after `safeParse`, because Zod has already rejected the document by then, so the only place it can live is ahead of the parse, operating on `unknown`. Crucially this is not a bypass: the coerced document still has to satisfy the identical schema and referential-integrity checks, so the renderer's "validated JSON only" guarantee is untouched. The layer only decides what an out-of-vocabulary value *means*, before the contract is checked.
+
+The design goal was to preserve the model's intent, not to make validation pass. Three mechanisms in descending order of fidelity:
+
+1. **Expand the vocabulary where the renderer can genuinely honour it.** `setting` gained 10 art-directed members (`lighthouse`, `ship`, `hospital`, `church`, `laboratory`, `graveyard`, `cabin`, `highway`, `mountain`, `castle`), each with a real backdrop in `design/environments.ts` — a lighthouse premise now renders *as a lighthouse*. `genre` gained four top-level film genres it could not previously express (`mystery`, `action`, `adventure`, `supernatural`); `mood` gained `hopeful`. Genre and mood cost nothing in art direction today (both are display-only until the Music Engine lands), while each new `setting` is a real design commitment, which is what bounds the expansion.
+2. **Semantic aliases for the long tail.** ~450 curated entries, each required to be a true synonym, a strict subtype, or the nearest renderable neighbour (`cathedral`→`church`, `tavern`→`diner`, `run`→`stride`). Two unit tests assert every alias key is in canonical form and every alias/fallback target is a real member of its own vocabulary, so the tables cannot rot into dead entries or into a coercion that lands in a second Zod failure.
+3. **A least-committal fallback, only when the first two fail.** `setting` falls back to `void` — an abstract dark stage that asserts *no* location — specifically so an unrecognized place is never rendered as a confidently wrong one. This is the direct answer to "do not silently replace lighthouse with forest": the fallback declines to name a place rather than naming the wrong one. The `slugline` is free text and always survives verbatim, so the scene still *reads* as its real location on screen even in the fallback case.
+
+`beats[].id` is handled differently again, by asking for less: it is renderer bookkeeping with no creative content, so the prompt no longer requests it and the coercion layer derives `${type}-${index}`. The schema keeps `id` **required**, so every downstream consumer still sees `id: string` rather than `id?: string` — the field is filled in at ingestion, not weakened in the contract.
+
+Equally deliberate is what the layer refuses to repair: a missing dialogue `line`, an unrecognizable beat `type`, a beat list below the schema minimum, and **duplicate cast ids**. The last one is the sharp case. Beat ids are de-duplicated freely because nothing references them; cast ids are the target of a reference graph, so silently renaming a colliding second character would bind half the scene's dialogue to the wrong actor. Those all still fail validation and drive the existing repair → retry → seed-fallback chain, which preserves the Milestone 6 review's duplicate-cast-id fix intact.
+
+**Results:** the captured corpus went from 4/16 to 16/16 validating, with no script's title, beat count, or authored setting altered — the only changes were the miscodings above. The corpus is committed as `ai/groqSamples.fixture.ts` and asserted per-sample in `ai/groqSamples.test.ts`, including a test pinning the original bug: the lighthouse premise must reach playback with `setting: 'lighthouse'` and a slugline still naming a lighthouse.
+
+**Trade-offs:** The alias tables are hand-curated judgement calls and will need occasional extension; that is accepted as the cost of not falling back arbitrarily, and the two structural tests keep them honest without anyone having to re-read them. `resolveEnum`'s embedded-substring step (step 4) is the one genuinely fuzzy rule — it resolves "abandoned warehouse" correctly but could in principle mis-resolve an unforeseen compound, so it is bounded to matches of 4+ characters and takes the longest match ("starship bridge" resolves on `starship`, not `bridge`). Coercion is by nature silent to the user, which is exactly the risk ADR-015 flagged; `validateSceneScript` therefore returns a `coercions: CoercionNote[]` list on both success and failure, and `createScene` logs it in development only. The `setting` vocabulary is now 22 values, so any future table keyed on `Setting` (a music arrangement, a particle default) has 22 entries to fill rather than 12 — `Record<Setting, T>` makes that a compile error rather than a silent gap, which is the intended pressure.
+
+**Status:** Accepted

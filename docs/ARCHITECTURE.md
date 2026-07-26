@@ -56,15 +56,15 @@ flowchart TD
     C -->|stream chunks| D[TolerantPreviewParser]
     D -->|display only, best effort| E["Writing Room" UI]
     C -->|on complete| F[Raw text]
-    F --> G[JSON.parse + Zod validate]
+    F --> F1[JSON.parse]
+    F1 --> J[Coercion pass — operates on unknown]
+    J --> J1[Unknown enum → alias, else nearest known default]
+    J --> J2[null → absent; supply missing voice/entrance]
+    J --> J3[Clamp durations and text, derive beat ids]
+    J --> G[Zod validate + referential integrity]
     G -->|fail| H[Repair: trim fences, brace-balance, retry once]
     H -->|still fails| I[Load Seed Script — guaranteed demo]
-    G -->|ok| J[Normalizer]
-    H -->|repaired ok| J
-    J --> J1[Unknown enum → nearest known default]
-    J --> J2[Inject implicit entrances for speaking cast]
-    J --> J3[Clamp durations, assign stable ids]
-    J --> K[SceneScript — the only contract the renderer knows]
+    G -->|ok| K[SceneScript — the only contract the renderer knows]
     I --> K
     K --> L[Timeline Compiler → CueList]
     L --> M["Scene Controller (Director) — beat sequencer + transport"]
@@ -207,8 +207,8 @@ graph TD
 |---|---|---|
 | `version` | `"1.0"` | Migration safety. Validator rejects unknown majors. |
 | `title` | string (≤40) | Movie title for the title card. |
-| `genre` | enum: heist, noir, scifi, horror, romance, western, thriller, comedy, fantasy, drama | Drives visual + musical defaults. |
-| `mood` | enum: tense, melancholy, playful, ominous, triumphant, mysterious, frantic, tender | Global affect. Music baseline. |
+| `genre` | enum: heist, noir, scifi, horror, romance, western, thriller, comedy, fantasy, drama, mystery, action, adventure, supernatural | Drives visual + musical defaults. |
+| `mood` | enum: tense, melancholy, playful, ominous, triumphant, mysterious, frantic, tender, hopeful | Global affect. Music baseline. |
 | `scene` | `SceneHeader` | Where and when. |
 | `cast` | `Character[]` (1–3) | Speaking + silent presence. Cap at 3 for stage legibility. |
 | `beats` | `Beat[]` (4–12) | The performance. Ordered. |

@@ -72,7 +72,7 @@ The object must match this exact contract:
     "exit": optional, same shape as entrance but "to": one of [${options(exitToSchema)}],
     "silhouetteAccent": optional, one of [${options(silhouetteAccentSchema)}]
   },
-  "beats": 4 to 12 entries, each has a shared "id" (string) and "type", plus type-specific fields:
+  "beats": 4 to 12 entries, each has a "type" plus type-specific fields:
     { "type": "title", "subtitle": optional string }
     { "type": "slugline" }
     { "type": "action", "text": string (<=240 chars), "narrate": optional boolean }
@@ -90,12 +90,14 @@ The object must match this exact contract:
 }
 
 Hard rules:
-- Use ONLY the enum values listed above — never invent a new one.
+- Use ONLY the enum values listed above — never invent a new one. Pick the closest listed value.
+- Omit any optional field you don't need. Never write null — leave the key out entirely.
 - Every "characterId" (in dialogue beats and movements) must exactly match one of the "cast[].id" values you wrote.
 - Every "camera.target" must be a cast id, "center", or "wide".
 - Every character's "entrance.beat" (and "exit.beat" if present) must be a valid 0-based index into "beats" — strictly less than the number of beats you write.
 - "cast" has 1 to 3 entries. "beats" has 4 to 12 entries.
 - Open with a "title" or "slugline" beat, and include at least one "dialogue" beat.
+- The "slugline" string is free text: name the real location there ("EXT. LIGHTHOUSE - NIGHT") even when "setting" has to be the nearest listed backdrop.
 - Write economically and cinematically. Output raw JSON only — nothing before or after it.`
 }
 

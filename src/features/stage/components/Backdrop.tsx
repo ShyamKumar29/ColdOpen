@@ -13,6 +13,7 @@ function motifStyle(motif: EnvironmentMotif): CSSProperties {
     case 'shelves':
     case 'trunks':
     case 'brick':
+    case 'planks':
       return {
         backgroundImage:
           'repeating-linear-gradient(90deg, rgba(0,0,0,0.4) 0 2px, transparent 2px 40px)',
@@ -44,6 +45,45 @@ function motifStyle(motif: EnvironmentMotif): CSSProperties {
       return {
         backgroundImage:
           'radial-gradient(ellipse 60% 40% at 50% 100%, rgba(0,0,0,0.3), transparent 70%)',
+      }
+    case 'waterline':
+      return {
+        backgroundImage:
+          'repeating-linear-gradient(0deg, rgba(255,255,255,0.045) 0 1px, transparent 1px 13px)',
+        backgroundPosition: 'bottom',
+        backgroundSize: '100% 38%',
+        backgroundRepeat: 'repeat-x',
+      }
+    case 'arches':
+      return {
+        backgroundImage:
+          'repeating-linear-gradient(90deg, rgba(0,0,0,0.5) 0 7px, transparent 7px 56px), ' +
+          'linear-gradient(0deg, transparent 0 62%, rgba(0,0,0,0.45) 62% 65%, transparent 65%)',
+      }
+    case 'stones':
+      return {
+        backgroundImage:
+          'repeating-linear-gradient(90deg, rgba(0,0,0,0.45) 0 11px, transparent 11px 47px)',
+        backgroundPosition: 'bottom',
+        backgroundSize: '100% 26%',
+        backgroundRepeat: 'repeat-x',
+      }
+    case 'peaks':
+      return {
+        backgroundImage:
+          'repeating-linear-gradient(63deg, rgba(0,0,0,0.4) 0 30px, transparent 30px 62px), ' +
+          'repeating-linear-gradient(-63deg, rgba(0,0,0,0.4) 0 30px, transparent 30px 62px)',
+        backgroundPosition: 'bottom',
+        backgroundSize: '100% 42%',
+        backgroundRepeat: 'repeat-x',
+      }
+    case 'road':
+      return {
+        backgroundImage:
+          'repeating-linear-gradient(0deg, rgba(255,255,255,0.07) 0 22px, transparent 22px 62px)',
+        backgroundPosition: 'center bottom',
+        backgroundSize: '9px 55%',
+        backgroundRepeat: 'repeat-y',
       }
     case 'flat':
     default:

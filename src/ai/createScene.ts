@@ -1,5 +1,5 @@
 import { validateSceneScript } from '@schema'
-import type { SceneScript } from '@schema'
+import type { SceneScript, SceneScriptValidationResult } from '@schema'
 import { heistLibrary } from '@scenes'
 import { extractJsonCandidate } from './jsonExtract'
 import { requestSceneStream } from './groqStream'
@@ -99,5 +99,22 @@ function tryParseAndValidate(text: string): SceneScript | null {
   }
 
   const result = validateSceneScript(parsed)
+  reportCoercions(result)
   return result.success ? result.data : null
+}
+
+/**
+ * ADR-015's stated trade-off is that silent normalization can hide AI output
+ * quality problems from developers. Surfacing what the coercion pass had to
+ * change (ADR-029) is what pays that off — in development only, since a
+ * coerced value is a completely normal outcome for a user.
+ */
+function reportCoercions(result: SceneScriptValidationResult): void {
+  if (!import.meta.env.DEV || result.coercions.length === 0) return
+
+  console.groupCollapsed(`[cold-open] normalized ${result.coercions.length} scene script value(s)`)
+  for (const note of result.coercions) {
+    console.log(`${note.path}: ${note.from} -> ${note.to} (${note.reason})`)
+  }
+  console.groupEnd()
 }

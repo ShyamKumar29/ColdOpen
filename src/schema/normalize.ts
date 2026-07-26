@@ -1,8 +1,10 @@
+import { coerceSceneScriptCandidate, type CoercionNote } from './coerce'
 import { sceneScriptSchema } from './sceneScript.schema'
 import type { SceneScript } from './types'
 
 export type SceneScriptValidationResult =
-  { success: true; data: SceneScript } | { success: false; error: string }
+  | { success: true; data: SceneScript; coercions: CoercionNote[] }
+  | { success: false; error: string; coercions: CoercionNote[] }
 
 /**
  * Validates unknown input against the SceneScript contract (ADR-015 in
@@ -12,20 +14,28 @@ export type SceneScriptValidationResult =
  * entrance/exit beat indices. A script that is shape-valid but referentially
  * broken is treated the same as a shape-invalid one — the `ai/` ingestion
  * layer's repair/retry/seed-fallback chain is what recovers from either.
+ *
+ * The candidate first passes through `coerceSceneScriptCandidate`, which
+ * resolves out-of-vocabulary enum values and fills in derivable bookkeeping
+ * (ADR-029). That step only decides what an unrecognized value *means*;
+ * the document it produces still has to satisfy this same Zod parse, so no
+ * source — Groq, seed script, or future editor — skips the contract.
+ * `coercions` reports everything it changed, for development logging.
  */
 export function validateSceneScript(candidate: unknown): SceneScriptValidationResult {
-  const result = sceneScriptSchema.safeParse(candidate)
+  const { value, notes } = coerceSceneScriptCandidate(candidate)
+  const result = sceneScriptSchema.safeParse(value)
 
   if (!result.success) {
-    return { success: false, error: result.error.message }
+    return { success: false, error: result.error.message, coercions: notes }
   }
 
   const issues = validateReferentialIntegrity(result.data)
   if (issues.length > 0) {
-    return { success: false, error: issues.join('; ') }
+    return { success: false, error: issues.join('; '), coercions: notes }
   }
 
-  return { success: true, data: normalizeSceneScript(result.data) }
+  return { success: true, data: normalizeSceneScript(result.data), coercions: notes }
 }
 
 /**

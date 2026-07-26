@@ -21,6 +21,12 @@ export const genreSchema = z.enum([
   'comedy',
   'fantasy',
   'drama',
+  // Top-level film genres a premise regularly lands on that the original
+  // ten couldn't express without misfiling it as something else.
+  'mystery',
+  'action',
+  'adventure',
+  'supernatural',
 ])
 
 export const moodSchema = z.enum([
@@ -32,6 +38,7 @@ export const moodSchema = z.enum([
   'mysterious',
   'frantic',
   'tender',
+  'hopeful',
 ])
 
 export const settingSchema = z.enum([
@@ -47,6 +54,19 @@ export const settingSchema = z.enum([
   'apartment',
   'subway',
   'void',
+  // Location families the original twelve had no defensible neighbour for.
+  // Each one is art-directed in `design/environments.ts`; the alias table in
+  // `schema/aliases.ts` folds their long tail of synonyms into them.
+  'lighthouse',
+  'ship',
+  'hospital',
+  'church',
+  'laboratory',
+  'graveyard',
+  'cabin',
+  'highway',
+  'mountain',
+  'castle',
 ])
 
 export const timeOfDaySchema = z.enum(['dawn', 'day', 'dusk', 'night'])
