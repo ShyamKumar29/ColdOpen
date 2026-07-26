@@ -50,6 +50,35 @@ describe('compileTimeline', () => {
     )
   })
 
+  it('emits a speech:request cue carrying the speaker and full line for a dialogue beat', () => {
+    const timeline = compileTimeline(heistLibrary)
+    const dialogueIndex = heistLibrary.beats.findIndex((beat) => beat.type === 'dialogue')
+    const dialogueBeat = heistLibrary.beats[dialogueIndex]
+    if (!dialogueBeat || dialogueBeat.type !== 'dialogue')
+      throw new Error('expected a dialogue beat')
+    const cues = timeline[dialogueIndex]?.cues ?? []
+
+    expect(cues).toContainEqual(
+      expect.objectContaining({
+        kind: 'speech:request',
+        payload: { characterId: dialogueBeat.characterId, line: dialogueBeat.line },
+      }),
+    )
+  })
+
+  it('sets speechCharacterId only on dialogue beats', () => {
+    const timeline = compileTimeline(heistLibrary)
+
+    heistLibrary.beats.forEach((beat, index) => {
+      const compiled = timeline[index]
+      if (beat.type === 'dialogue') {
+        expect(compiled?.speechCharacterId).toBe(beat.characterId)
+      } else {
+        expect(compiled?.speechCharacterId).toBeUndefined()
+      }
+    })
+  })
+
   it('emits a light:change cue whenever a beat carries a lighting direction', () => {
     const timeline = compileTimeline(heistLibrary)
 

@@ -4,6 +4,8 @@ import { createSceneController } from '@engines/controller'
 import type { SceneController } from '@engines/controller'
 import { createAnimationEngine } from '@engines/animation'
 import type { AnimationEngine } from '@engines/animation'
+import { createSpeechEngine } from '@engines/speech'
+import type { SpeechEngine } from '@engines/speech'
 import { poseTokens } from '@design'
 import type { SceneScript } from '@schema'
 import { useColdOpenStore } from '@store'
@@ -11,6 +13,7 @@ import { useColdOpenStore } from '@store'
 export interface SceneControllerBridge {
   controller: SceneController
   animations: AnimationEngine
+  speech: SpeechEngine
 }
 
 /**
@@ -28,7 +31,8 @@ export interface SceneControllerBridge {
  */
 export function useSceneController(script: SceneScript | null): SceneControllerBridge {
   const [bus] = useState(() => createEventBus())
-  const [controller] = useState(() => createSceneController(bus))
+  const [speech] = useState(() => createSpeechEngine(bus))
+  const [controller] = useState(() => createSceneController(bus, speech))
   const [animations] = useState(() => createAnimationEngine())
 
   const setPhase = useColdOpenStore((state) => state.setPhase)
@@ -37,10 +41,14 @@ export function useSceneController(script: SceneScript | null): SceneControllerB
   const setActiveCharacters = useColdOpenStore((state) => state.setActiveCharacters)
   const setCurrentSubtitle = useColdOpenStore((state) => state.setCurrentSubtitle)
   const setCurrentLighting = useColdOpenStore((state) => state.setCurrentLighting)
+  const setClockSource = useColdOpenStore((state) => state.setClockSource)
   const reducedMotion = useColdOpenStore((state) => state.reducedMotion)
 
   useEffect(() => {
-    const syncPhase = (): void => setPhase(controller.getPhase())
+    const syncPhase = (): void => {
+      setPhase(controller.getPhase())
+      setClockSource(controller.getClockSource())
+    }
 
     const unsubscribers = [
       bus.on('beat:enter', ({ index }) => {
@@ -66,6 +74,21 @@ export function useSceneController(script: SceneScript | null): SceneControllerB
       bus.on('character:pose', ({ characterId, pose }) =>
         animations.setPose(characterId, pose, poseTokens[pose], reducedMotion),
       ),
+      // Speech is triggered and settled here, not inside the Speech Engine
+      // or Scene Controller themselves (ADR-022) — both engine factories are
+      // called from a lazy `useState` initializer, which React StrictMode's
+      // dev-mode double-invoke runs twice; a `bus.on(...)` performed inside
+      // either factory would register two live handlers on the one shared
+      // bus and speak every line twice. This `useEffect` already
+      // subscribes/unsubscribes safely across StrictMode's mount → cleanup →
+      // mount cycle, same as every cue above it.
+      bus.on('speech:request', ({ characterId, line }) => speech.speak(characterId, line)),
+      bus.on('speech:end', ({ characterId }) => controller.notifySpeechEnd(characterId)),
+      bus.on('speech:error', ({ characterId }) => controller.notifySpeechError(characterId)),
+      bus.on('speech:unavailable', () => {
+        controller.notifySpeechUnavailable()
+        syncPhase()
+      }),
       bus.on('transport:play', syncPhase),
       bus.on('transport:pause', syncPhase),
       bus.on('transport:stop', syncPhase),
@@ -78,6 +101,7 @@ export function useSceneController(script: SceneScript | null): SceneControllerB
     bus,
     controller,
     animations,
+    speech,
     reducedMotion,
     setPhase,
     setBeatIndex,
@@ -85,6 +109,7 @@ export function useSceneController(script: SceneScript | null): SceneControllerB
     setActiveCharacters,
     setCurrentSubtitle,
     setCurrentLighting,
+    setClockSource,
   ])
 
   useEffect(() => {
@@ -92,7 +117,13 @@ export function useSceneController(script: SceneScript | null): SceneControllerB
     controller.load(script)
     setPhase(controller.getPhase())
     setActiveCharacters([])
-  }, [script, controller, setPhase, setActiveCharacters])
+    // Fire-and-forget: `castVoices` resolves asynchronously (it awaits the
+    // browser's voice list). If `play()` fires before it resolves, the
+    // first line(s) speak with the Speech Engine's default pitch/rate/voice
+    // instead of their cast-derived values — an acceptable, graceful
+    // fallback (not a stall or an error), not something worth blocking on.
+    void speech.castVoices(script.cast)
+  }, [script, controller, speech, setPhase, setActiveCharacters])
 
   useEffect(() => {
     let frame = requestAnimationFrame(function step(now) {
@@ -104,5 +135,5 @@ export function useSceneController(script: SceneScript | null): SceneControllerB
 
   useEffect(() => () => controller.destroy(), [controller])
 
-  return { controller, animations }
+  return { controller, animations, speech }
 }

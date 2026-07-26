@@ -15,6 +15,7 @@ export type CueKind =
   | 'character:enter'
   | 'character:exit'
   | 'character:pose'
+  | 'speech:request'
 
 export interface Cue<TKind extends ColdOpenEventName = CueKind> {
   readonly id: string
@@ -31,6 +32,8 @@ export interface CompiledBeat {
   readonly id: string
   readonly durationMs: number
   readonly cues: readonly AnyCue[]
+  /** Set only for a dialogue beat: who the Scene Controller awaits `speech:end`/`speech:error` from when the speech clock is active (ADR-005). */
+  readonly speechCharacterId?: string
 }
 
 /** The Timeline Compiler's frozen, ordered output — the single source of truth for scene playback. */

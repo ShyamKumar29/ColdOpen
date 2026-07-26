@@ -99,22 +99,22 @@ Debug cue log was deferred out of this milestone's scope and is carried over to 
 
 ## Milestone 4 — Speech Engine (Clock Handoff)
 
-**Status:** Not Started
+**Status:** Complete (two deliverables deferred — see below)
 
 **Objective:** Characters speak, and speech becomes the clock master.
 
 **Deliverables:**
 - Voice enumeration and casting per character
 - Utterance queue with sentence splitting
-- `onboundary` → subtitle reveal + mouth flap
 - Capability probe with automatic fallback to the timer clock
-- Debug cue log (carried over from Milestone 2)
+- Deferred to a later milestone: `onboundary` → subtitle reveal + mouth flap (`speech:boundary` is emitted and available, but nothing consumes it yet — no phoneme/lip-sync animation shipped this milestone)
+- Deferred to a later milestone: debug cue log (carried over from Milestone 2's deliverable list; still not implemented)
 
 **Dependencies:** Milestone 3
 
 **Definition of Done:**
 - Two distinguishable voices perform dialogue
-- Subtitles track speech timing
+- Subtitles appear in sync with each dialogue beat's speech (full-line reveal at beat entry, not word-by-word `onboundary` tracking — that remains deferred, see above)
 - Disabling TTS support degrades to Milestone 2 behavior with no visible break
 
 ---

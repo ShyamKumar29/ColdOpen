@@ -94,6 +94,7 @@ function cuesForBeat(beat: Beat, beatIndex: number, script: SceneScript): readon
         text: beat.line,
         parenthetical: beat.parenthetical,
       })
+      push('speech:request', { characterId: beat.characterId, line: beat.line })
       break
     case 'beat':
       push('subtitle:hide', {})
@@ -140,6 +141,7 @@ export function compileTimeline(script: SceneScript): CueList {
       id: beat.id,
       durationMs: estimateBeatDurationMs(beat),
       cues: cuesForBeat(beat, index, script),
+      speechCharacterId: beat.type === 'dialogue' ? beat.characterId : undefined,
     }),
   )
 

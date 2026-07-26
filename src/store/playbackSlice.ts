@@ -20,6 +20,7 @@ export interface PlaybackSlice {
   setBeatIndex: (beatIndex: number) => void
   setElapsedMs: (elapsedMs: number) => void
   setActiveCharacters: (activeCharacters: string[]) => void
+  setClockSource: (clockSource: ClockSource) => void
 }
 
 export const createPlaybackSlice: StateCreator<ColdOpenStore, [], [], PlaybackSlice> = (set) => ({
@@ -33,4 +34,5 @@ export const createPlaybackSlice: StateCreator<ColdOpenStore, [], [], PlaybackSl
   setBeatIndex: (beatIndex) => set({ beatIndex }),
   setElapsedMs: (elapsedMs) => set({ elapsedMs }),
   setActiveCharacters: (activeCharacters) => set({ activeCharacters }),
+  setClockSource: (clockSource) => set({ clockSource }),
 })

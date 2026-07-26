@@ -37,6 +37,8 @@ export interface ColdOpenEventMap {
   'beat:complete': { index: number }
   'beat:exit': { index: number }
 
+  /** Controller -> Speech: the only cue that starts an utterance (docs/ARCHITECTURE.md section 8 sequence diagram). */
+  'speech:request': { characterId: string; line: string }
   'speech:start': { characterId: string }
   'speech:boundary': { characterId: string; charIndex: number }
   'speech:end': { characterId: string }

@@ -1,2 +1,5 @@
 export * from './types'
 export * from './speechEngine'
+export * from './webSpeechAdapter'
+export * from './sentenceSplit'
+export * from './voiceCasting'

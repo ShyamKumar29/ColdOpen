@@ -274,6 +274,48 @@ This document captures the architectural decisions already made for Cold Open. I
 
 ---
 
+## ADR-021
+
+**Decision:** The Scene Controller depends on the Speech Engine only through a two-method structural interface (`SpeechClockAdapter { probeCapability(); cancel() }`) declared locally in `engines/controller/types.ts`, never by importing `engines/speech`. Actually starting an utterance happens entirely through the existing `speech:request` bus cue (documented in `docs/ARCHITECTURE.md` section 8's sequence diagram, formalized into the bus taxonomy this milestone) — the Controller never calls `speak()` directly. On resume-from-pause, a dialogue beat's line restarts from the beginning rather than attempting to continue mid-utterance; if speech drops to unavailable mid-scene, the Controller falls back to the timer clock for the remainder of the run.
+
+**Context:** Milestone 4 needed the Scene Controller (ADR-005's clock owner) and the Speech Engine to coordinate on two things a bus cue alone can't express: which clock is authoritative right now, and stopping in-flight speech on pause/stop/seek/restart without that stop looking like a natural completion (`speech:end`) and falsely advancing a beat. The Web Speech API also has no reliable mid-utterance pause/resume across browsers (the existing Speech API risk table already flags `pause()`/`resume()` as buggy), so "resume exactly where it paused" was never a viable option.
+
+**Reasoning:** Giving the Controller the full `SpeechEngine` type would let it call `speak()` directly, which duplicates the beat-driven triggering the compiler/bus already does via `speech:request` and would let two different code paths start an utterance (violating the "one authoritative emitter" rule this project holds for every other cue). Shrinking the dependency to exactly the two calls the Controller actually needs — "is speech available" and "stop whatever's playing" — keeps `engines/controller` compilable and testable without ever importing `engines/speech`; the existing `sceneController.test.ts` suite passes a plain object literal as the fake adapter, with no DOM or `SpeechSynthesis` mocking required. Restarting the line on resume, rather than faking a mid-utterance continuation, is a deliberate simplification given the underlying API can't do it reliably anyway; only the `speech:request` cue re-fires on resume, not the beat's other entry cues, so subtitle/light/character state (already correct) isn't visibly redone.
+
+**Trade-offs:** A user who pauses mid-sentence and resumes hears the character's line restart from the top rather than continuing — an acceptable and disclosed limitation given Web Speech's own unreliability here, not a regression from some more capable baseline. The Controller's speech-driven wait is also backed by its own watchdog (`durationMs × 2`) in addition to the Speech Engine's own per-chunk watchdog — deliberate double coverage, since a hung Controller (the one thing standing between "paused forever" and a working demo) is worse than a redundant timer.
+
+**Status:** Accepted
+
+---
+
+## ADR-022
+
+**Decision:** `createSpeechEngine` and `createSceneController` never call `bus.on(...)` inside their own factory function bodies. Any reaction one of them needs to another engine's bus event is wired by `useSceneController`, inside its existing bus-subscribing `useEffect`, either as a direct method call (`speech.speak(...)`) or through a small `notifySpeechEnd`/`notifySpeechError`/`notifySpeechUnavailable` surface the Controller exposes for exactly this purpose.
+
+**Context:** The initial Milestone 4 implementation had `createSpeechEngine` subscribe itself to `speech:request`, and `createSceneController` subscribe itself to `speech:end`/`speech:error`/`speech:unavailable`, directly in their constructors — an "observation" pattern that seemed to match ADR-001's description of engines reacting to bus events. In the browser, every dialogue line was spoken twice. The cause: both engines are constructed via `useState(() => createX(bus))` lazy initializers in `useSceneController`, and React StrictMode's dev-mode double-invoke calls a `useState` lazy initializer twice on mount to help surface impure renders. `createEventBus()` and `createAnimationEngine()` are pure constructors, so their duplicate call is harmless — but `bus.on(...)` performed inside `createSpeechEngine`/`createSceneController` is a real side effect on a shared, mutable object (the one bus instance, itself resolved once), so both the discarded first-pass engine instance and the committed second-pass instance ended up with live handlers on the same bus. A `speech:request` cue then triggered two independent `speak()` calls.
+
+**Reasoning:** This codebase already has a proven-safe place for cross-engine bus reactions: `useSceneController`'s single `useEffect`, which every other cue (`character:enter`, `character:pose`, `light:change`, etc.) already goes through, calling engine methods directly rather than having engines subscribe to each other or to the bus themselves. That effect's subscribe/unsubscribe pair already survives StrictMode's mount → cleanup → mount cycle correctly (cleanup functions run in the discarded pass, leaving only one live subscription) — it was never broken; Milestone 4 simply didn't route its new cross-engine wiring through it. Restoring that pattern for `speech:request`/`speech:end`/`speech:error`/`speech:unavailable` fixes the duplication at its actual source (a side effect in the render phase) rather than papering over the symptom (e.g., de-duplicating by request id, or disabling StrictMode).
+
+**Trade-offs:** The Scene Controller's public interface grows three narrow `notifySpeech*` methods instead of listening for those events itself — slightly more surface area, but it keeps `createSceneController`'s constructor pure and testable with a plain function call (`controller.notifySpeechEnd('vera')`) instead of requiring every test to go through the bus. Any future engine that needs to react to another engine's bus event must remember to wire it through the owning hook's effect, not its own constructor — worth calling out here since the failure mode (StrictMode-only, dev-only, silent duplication) is easy to miss without dev-mode browser verification, exactly as happened this milestone.
+
+**Status:** Accepted
+
+---
+
+## ADR-023
+
+**Decision:** `Actor`'s silhouette box height (`design/spacing.ts`'s `stage.actorHeightFraction`) is computed from the maximum combined build-scale × pose-scale value actually defined in `design/silhouette.ts` and `design/pose.ts`, minus a fixed safety margin, rather than a hand-picked percentage.
+
+**Context:** A 'tall' character (`silhouetteTokens.tall.scaleY = 1.08`) shown in a 'surprised' pose (`poseTokens.surprised.scale = 1.05`) had its head clipped by the stage's `overflow-hidden` top edge. `Actor.tsx` applies both scales from a `transformOrigin: 'bottom center'` on nested elements, so any combined scale above 1 stretches the silhouette upward with no corresponding change to its layout box. The previous constant (`height: '88%'`, hardcoded in `Actor.tsx`) sized an *unscaled* silhouette to almost exactly fill the stage height already — the small remaining headroom (12% of stage height) was less than what an 8% build stretch and a 5% pose stretch compound to (13.4% of the 88% box, i.e. ~11.8% of stage height), so the two together had nowhere to expand into but past the frame.
+
+**Reasoning:** Picking a new fixed percentage that merely fixes today's worst case ('tall' + 'surprised') would silently reintroduce the same bug the next time either token table gains a larger scale value — exactly the kind of magic-number drift CLAUDE.md's Code Style rules warn against. Deriving `actorHeightFraction` from `Math.max(...)` over the actual `silhouetteTokens`/`poseTokens` values, plus a fixed 3%-of-stage-height safety margin, means the box height automatically stays safe for any future build or pose scale, without anyone having to remember to re-check this file when `design/silhouette.ts` or `design/pose.ts` changes.
+
+**Trade-offs:** `design/spacing.ts` now imports from `design/silhouette.ts` and `design/pose.ts` (previously spacing.ts had no internal `design/` imports) — a small increase in coupling within the `design/` folder, acceptable since all three are peer token files in the same layer, not a cross-layer violation. Characters render slightly smaller (headroom went from 12% to ~14.5% of stage height) as a direct consequence of guaranteeing the worst case never clips; this is the correct trade given the alternative is a visibly broken frame.
+
+**Status:** Accepted
+
+---
+
 ## ADR-018
 
 **Decision:** The Timeline Compiler estimates each beat's on-screen duration from its content (dialogue line length, an explicit pause `durationMs`, or a fixed per-type constant, plus `holdMs`) rather than the Scene Controller inventing timing at playback time. The Scene Controller schedules exactly one `setTimeout` per beat off that duration — never a per-frame loop — and tracks `remainingMs`/`beatEnteredAt` so pause/resume is accurate to the millisecond.

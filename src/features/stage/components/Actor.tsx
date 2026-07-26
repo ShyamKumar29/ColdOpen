@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { silhouetteTokens, stageSlotPositions, DEFAULT_BUILD } from '@design'
+import { silhouetteTokens, stageSlotPositions, DEFAULT_BUILD, stage as stageTokens } from '@design'
 import type { CastMember } from '@engines/character'
 import type { AnimationEngine } from '@engines/animation'
 import { Silhouette } from './Silhouette'
@@ -39,7 +39,7 @@ export function Actor({ member, animations }: ActorProps) {
       <div
         style={{
           width: '100%',
-          height: '88%',
+          height: `${stageTokens.actorHeightFraction * 100}%`,
           transform: `scale(${token.scaleX * flip}, ${token.scaleY})`,
           transformOrigin: 'bottom center',
         }}
