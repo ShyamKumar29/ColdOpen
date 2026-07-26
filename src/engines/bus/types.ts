@@ -3,6 +3,14 @@ import type { LightingPreset } from '@schema'
 type LightingTransition = 'cut' | 'fade' | 'flicker'
 
 /**
+ * A character's derived, runtime-only performance state — never schema
+ * data (docs/DECISIONS.md ADR-019). Owned here since the bus is the
+ * taxonomy's single source of truth; `engines/character` and
+ * `engines/animation` both import it rather than redeclaring it.
+ */
+export type CharacterPose = 'idle' | 'speaking' | 'listening' | 'surprised' | 'thinking'
+
+/**
  * Event taxonomy for the Cold Open event bus (docs/ARCHITECTURE.md section 8).
  *
  * Naming convention is strictly `domain:verb` (CLAUDE.md Event Bus Rules).
@@ -54,6 +62,7 @@ export interface ColdOpenEventMap {
   'character:gesture': { characterId: string; gesture: string }
   'character:exit': { characterId: string }
   'character:mouth': { characterId: string; open: boolean }
+  'character:pose': { characterId: string; pose: CharacterPose }
 
   'subtitle:show': { characterId?: string; text: string; parenthetical?: string }
   'subtitle:hide': Record<string, never>

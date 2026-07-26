@@ -73,7 +73,31 @@ Debug cue log was deferred out of this milestone's scope and is carried over to 
 
 ---
 
-## Milestone 3 — Speech Engine (Clock Handoff)
+## Milestone 3 — Character Animation Foundation
+
+**Status:** Complete
+
+**Objective:** Character state changes become smooth transitions instead of instantaneous swaps, without pulling in camera work or the speech clock.
+
+**Deliverables:**
+- Animation Engine: a framework-independent interpolation engine, owning its `MotionValue`s (same ownership pattern as the Camera Engine, ADR-017) and driven by an explicit `tick(now)` step rather than a hidden RAF-internal library call, so it stays unit-testable in plain Node
+- A derived `CharacterPose` vocabulary (`idle`, `speaking`, `listening`, `surprised`, `thinking`) computed per beat from `SceneScript` content — never hardcoded UI behavior — and carried over the bus as a new minimal `character:pose` event
+- Smooth opacity fades for character entrances/exits (replacing the Milestone 2 behavior where the renderer ignored `activeCharacters` entirely)
+- A subtle pose-driven scale/vertical-settle transition, restrained and cinematic rather than exaggerated
+- `prefers-reduced-motion` wired end-to-end for the first time: OS preference detected and reflected in the settings store, every preset shortened (not disabled, since pose/opacity carry meaning) in the same table as the full-motion presets
+
+**Dependencies:** Milestone 2
+
+**Definition of Done:**
+- Character entrances/exits fade rather than pop
+- Speaking/listening/surprised/thinking poses read as subtle, distinct, and readable
+- The same `SceneScript` produces the same sequence of pose/opacity transitions every run
+- `prefers-reduced-motion` shortens every character transition
+- Beat progression, subtitles, and lighting remain exactly as synchronized as Milestone 2 left them
+
+---
+
+## Milestone 4 — Speech Engine (Clock Handoff)
 
 **Status:** Not Started
 
@@ -86,7 +110,7 @@ Debug cue log was deferred out of this milestone's scope and is carried over to 
 - Capability probe with automatic fallback to the timer clock
 - Debug cue log (carried over from Milestone 2)
 
-**Dependencies:** Milestone 2
+**Dependencies:** Milestone 3
 
 **Definition of Done:**
 - Two distinguishable voices perform dialogue
@@ -95,28 +119,27 @@ Debug cue log was deferred out of this milestone's scope and is carried over to 
 
 ---
 
-## Milestone 4 — Camera, Lighting Transitions & Character Motion
+## Milestone 5 — Camera & Lighting Transitions
 
 **Status:** Not Started
 
-**Objective:** The scene becomes cinematic rather than a slideshow.
+**Objective:** The scene becomes cinematic rather than a slideshow. Character motion itself (pose/opacity/entrance/exit) was pulled forward into Milestone 3; this milestone is what's left — the camera and lighting.
 
 **Deliverables:**
 - Camera rig with named moves on a single composited node
-- Character entrances, exits, and movement between slots
-- Gestures
+- Movement between stage slots (`beat.movements`) and gestures (`dialogueBeat.gesture`) — the two schema fields the Timeline Compiler still doesn't turn into cues
 - Lighting fades, flickers, blackout
 - Cut-to-black
 
-**Dependencies:** Milestone 3
+**Dependencies:** Milestone 4
 
 **Definition of Done:**
 - Sustained 60fps with camera movement, two actors, and a lighting change simultaneously
-- `prefers-reduced-motion` degradation path works correctly
+- `prefers-reduced-motion` degradation path works correctly for camera moves specifically (character-transition degradation already landed in Milestone 3)
 
 ---
 
-## Milestone 5 — Groq Integration
+## Milestone 6 — Groq Integration
 
 **Status:** Not Started
 
@@ -142,7 +165,7 @@ Debug cue log was deferred out of this milestone's scope and is carried over to 
 
 ---
 
-## Milestone 6 — Music Engine
+## Milestone 7 — Music Engine
 
 **Status:** Not Started
 
@@ -166,7 +189,7 @@ Debug cue log was deferred out of this milestone's scope and is carried over to 
 
 ---
 
-## Milestone 7 — Particles & Final Polish
+## Milestone 8 — Particles & Final Polish
 
 **Status:** Not Started
 
@@ -180,7 +203,7 @@ Debug cue log was deferred out of this milestone's scope and is carried over to 
 - Keyboard shortcuts
 - Share-a-premise URL param
 
-**Dependencies:** Milestone 4
+**Dependencies:** Milestone 5
 
 **Definition of Done:**
 - No layout shift, no console errors
@@ -188,7 +211,7 @@ Debug cue log was deferred out of this milestone's scope and is carried over to 
 
 ---
 
-## Milestone 8 — Demo Hardening
+## Milestone 9 — Demo Hardening
 
 **Status:** Not Started
 

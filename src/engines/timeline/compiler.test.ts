@@ -94,6 +94,73 @@ describe('compileTimeline', () => {
     )
   })
 
+  it('emits character:pose speaking for the speaker and listening for the rest, on a dialogue beat', () => {
+    const timeline = compileTimeline(heistLibrary)
+    const dialogueIndex = heistLibrary.beats.findIndex((beat) => beat.type === 'dialogue')
+    const dialogueBeat = heistLibrary.beats[dialogueIndex]
+    if (!dialogueBeat || dialogueBeat.type !== 'dialogue')
+      throw new Error('expected a dialogue beat')
+    const cues = timeline[dialogueIndex]?.cues ?? []
+
+    for (const character of heistLibrary.cast) {
+      const hasEntered = character.entrance.beat <= dialogueIndex
+      if (!hasEntered) continue
+
+      const expectedPose = character.id === dialogueBeat.characterId ? 'speaking' : 'listening'
+      expect(cues).toContainEqual(
+        expect.objectContaining({
+          kind: 'character:pose',
+          payload: { characterId: character.id, pose: expectedPose },
+        }),
+      )
+    }
+  })
+
+  it('emits character:pose thinking on a pause beat and surprised on a reveal beat, for present characters', () => {
+    const timeline = compileTimeline(heistLibrary)
+
+    const pauseIndex = heistLibrary.beats.findIndex((beat) => beat.type === 'beat')
+    const revealIndex = heistLibrary.beats.findIndex((beat) => beat.type === 'reveal')
+
+    if (pauseIndex >= 0) {
+      const cues = timeline[pauseIndex]?.cues ?? []
+      const poseCues = cues.filter((cue) => cue.kind === 'character:pose')
+      expect(poseCues.length).toBeGreaterThan(0)
+      for (const cue of poseCues) {
+        expect(cue.payload).toMatchObject({ pose: 'thinking' })
+      }
+    }
+
+    if (revealIndex >= 0) {
+      const cues = timeline[revealIndex]?.cues ?? []
+      const poseCues = cues.filter((cue) => cue.kind === 'character:pose')
+      expect(poseCues.length).toBeGreaterThan(0)
+      for (const cue of poseCues) {
+        expect(cue.payload).toMatchObject({ pose: 'surprised' })
+      }
+    }
+  })
+
+  it('does not emit character:pose for a character who has not entered yet', () => {
+    const scriptWithLateEntrance: SceneScript = {
+      ...heistLibrary,
+      cast: heistLibrary.cast.map((character, index) =>
+        index === 0 ? { ...character, entrance: { ...character.entrance, beat: 5 } } : character,
+      ),
+    }
+
+    const timeline = compileTimeline(scriptWithLateEntrance)
+    const lateCharacter = scriptWithLateEntrance.cast[0]!
+    const cuesBeforeEntrance = timeline[0]?.cues ?? []
+
+    expect(cuesBeforeEntrance).not.toContainEqual(
+      expect.objectContaining({
+        kind: 'character:pose',
+        payload: expect.objectContaining({ characterId: lateCharacter.id }),
+      }),
+    )
+  })
+
   it('freezes the timeline and every compiled beat', () => {
     const timeline = compileTimeline(heistLibrary)
 

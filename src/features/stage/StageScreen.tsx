@@ -15,7 +15,7 @@ export interface StageScreenProps {
  * for this playback session via `useSceneController`.
  */
 export function StageScreen({ script }: StageScreenProps) {
-  const controller = useSceneController(script)
+  const { controller, animations } = useSceneController(script)
   const phase = useColdOpenStore((state) => state.phase)
 
   return (
@@ -41,7 +41,7 @@ export function StageScreen({ script }: StageScreenProps) {
         </h1>
       </header>
 
-      <Stage script={script} />
+      <Stage script={script} animations={animations} />
 
       <footer
         className="flex w-full items-center justify-between"

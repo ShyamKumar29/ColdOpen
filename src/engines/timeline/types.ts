@@ -14,6 +14,7 @@ export type CueKind =
   | 'light:change'
   | 'character:enter'
   | 'character:exit'
+  | 'character:pose'
 
 export interface Cue<TKind extends ColdOpenEventName = CueKind> {
   readonly id: string

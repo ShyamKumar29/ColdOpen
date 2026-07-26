@@ -242,6 +242,38 @@ This document captures the architectural decisions already made for Cold Open. I
 
 ---
 
+## ADR-019
+
+**Decision:** A character's on-stage pose (`idle`, `speaking`, `listening`, `surprised`, `thinking`) is not schema data. It is derived purely from beat content by the Timeline Compiler and carried over the bus as a new `character:pose` event, the same way `character:enter`/`character:exit` already are.
+
+**Context:** Milestone 3 (Character Animation Foundation) needed a pose vocabulary richer than the pre-existing `CastMember.pose: 'idle' | 'gesture'` stub. Adding a `pose` field to the `Character` or `Beat` schema was considered and rejected: the AI/seed-script layer should not have to author "who's listening right now," since it's entirely determined by which beat is playing and who's on stage — exactly the category of fact ADR-006/ADR-007 already put in the compiler's hands (relative, content-derived timing) rather than the schema's.
+- `dialogue` beat → the speaker is `speaking`; every other character already on stage is `listening`.
+- `reveal` beat → everyone present is `surprised`.
+- `beat` (pause) → everyone present is `thinking`.
+- everything else → `idle`.
+
+**Reasoning:** Keeping pose derivation a pure function of `(beat, characterId)` inside `compileTimeline` means it inherits the Timeline Compiler's existing determinism guarantee for free — the same `SceneScript` always produces the same sequence of `character:pose` cues. It also means `engines/character` and `engines/animation` don't duplicate the mapping; both import the single `CharacterPose` union the bus already owns as the taxonomy's source of truth (mirroring how `LightingPreset` flows from `@schema` into `light:change`'s payload).
+
+**Trade-offs:** The five-pose vocabulary is a deliberately small, hand-picked set matched to what a silhouette actor with no rigged limbs can meaningfully convey (ADR-010). It is not extensible by scene content — a future beat type that needs a pose the compiler doesn't already derive requires a code change here, not a schema change, which is the intended trade rather than an oversight.
+
+**Status:** Accepted
+
+---
+
+## ADR-020
+
+**Decision:** The Animation Engine advances every in-flight character transition through an explicit `tick(now: number)` step that the React bridge hook (`useSceneController`) calls once per `requestAnimationFrame`, rather than delegating to Framer Motion's imperative `animate()`.
+
+**Context:** `animate()` schedules its own internal frame loop and callback timing, which is convenient but makes "the same sequence of calls always produces the same interpolation" hard to state precisely, and awkward to unit-test without either fake timers or waiting on real frames.
+
+**Reasoning:** Making `tick` a pure function of the timestamp it is given — progress is `(now - startedAt) / durationMs`, eased through a cubic-bezier solver shared with the CSS design tokens (`design/timing.ts`'s `easingCurves`) — means the engine's entire interpolation logic is testable in plain Node with synthetic timestamps (`animationEngine.test.ts`), with no DOM, no real animation frame, and no fake-timer gymnastics. It also mirrors the Scene Controller's own approach to timing (`remainingMs`/`beatEnteredAt` in `sceneController.ts`) rather than introducing a second, differently-shaped timing model for a sibling engine.
+
+**Trade-offs:** The engine does not get Framer's built-in spring physics or interruption handling for free; retargeting a channel (e.g., a new pose before the old one finishes) simply starts a fresh linear-time transition from the current interpolated value, which is enough for the restrained, cinematic motion this milestone calls for and keeps the implementation small. Revisit if a future milestone needs spring-based motion the bezier model can't express.
+
+**Status:** Accepted
+
+---
+
 ## ADR-018
 
 **Decision:** The Timeline Compiler estimates each beat's on-screen duration from its content (dialogue line length, an explicit pause `durationMs`, or a fixed per-type constant, plus `holdMs`) rather than the Scene Controller inventing timing at playback time. The Scene Controller schedules exactly one `setTimeout` per beat off that duration — never a per-frame loop — and tracks `remainingMs`/`beatEnteredAt` so pause/resume is accurate to the millisecond.

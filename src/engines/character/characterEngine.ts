@@ -64,7 +64,6 @@ export function createCharacterEngine(): CharacterEngine {
           character,
           slot,
           facing: facingForEntrance(character.entrance.from),
-          pose: 'idle',
         }
       })
     },

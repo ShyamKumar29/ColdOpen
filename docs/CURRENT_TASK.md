@@ -2,13 +2,25 @@
 
 ## Current Milestone
 
-Milestone 3 — Speech Engine (Clock Handoff)
+Milestone 4 — Speech Engine (Clock Handoff)
 
 ## Current Task
 
 Not started.
 
 ## Completed
+
+- Milestone 3 — Character Animation Foundation:
+  - Roadmap reordered: this milestone (animation, no speech/camera) was inserted as the new Milestone 3; the previously-numbered Milestone 3 (Speech Engine) and Milestone 4 (Camera/Lighting/Character Motion) shifted to Milestone 4 and Milestone 5, with Milestone 5's scope trimmed to camera + lighting only since character motion moved here. See `docs/ROADMAP.md` and ADR-019/ADR-020 in `docs/DECISIONS.md`.
+  - `CharacterPose` (`idle`/`speaking`/`listening`/`surprised`/`thinking`) introduced as a bus-owned type (`engines/bus/types.ts`) — a new `character:pose` event, and a new `poseForBeat()` pure function in the Timeline Compiler (`engines/timeline/compiler.ts`) that derives each present character's pose from beat content alone (dialogue speaker vs. listeners, reveal → surprised, pause → thinking, else idle). Never schema data (ADR-019). `CastMember.pose` (`engines/character/types.ts`) now uses this same union instead of the old `'idle' | 'gesture'` stub.
+  - Animation Engine implemented (`engines/animation/animationEngine.ts`, previously 100% empty scaffolding): owns per-character `MotionValue`s (opacity, poseScale, poseTranslateY — ADR-017's ownership pattern), and interpolates them via an explicit `tick(now)` step rather than Framer's imperative `animate()`, so progress is a pure function of the timestamp given (ADR-020) and the whole engine unit-tests in plain Node with synthetic timestamps (`animationEngine.test.ts`, 8 tests).
+  - Real preset table (`engines/animation/presets.ts`) replacing the empty `Record<never, ...>` stub: `pose.*`/`entrance.fadeIn`/`exit.fadeOut` durations/easings pulled from `design/timing.ts`, plus a `reducedMotionPresets` table (every transition shortened, none disabled, since pose/opacity carry meaning).
+  - `design/timing.ts` gained `easingCurves` (numeric control-point arrays); `easings`' CSS strings are now derived from the same numbers so a CSS transition and a numerically-interpolated `MotionValue` trace the same curve (shared by a new generic `createCubicBezierEasing()` solver in `lib/cubicBezier.ts`, zero domain knowledge per CLAUDE.md `lib/` rules). `design/pose.ts` added: `poseTokens` maps each `CharacterPose` to a restrained `{scale, translateY}` (art direction lives in `design/`, not the engine).
+  - `hooks/useSceneController.ts` now also constructs the Animation Engine (same lazy-`useState`-once pattern as the Scene Controller and bus), subscribes `character:enter`/`character:exit`/`character:pose` to engine calls (in addition to its existing store-sync duties), and drives `tick()` off a `requestAnimationFrame` loop. Return type changed from bare `SceneController` to `{ controller, animations }` — updated its one caller, `StageScreen.tsx`.
+  - `features/stage/components/Actor.tsx`/`ActorLayer.tsx` rewritten to consume the Animation Engine: `ActorLayer` now takes an `animations` prop and stays permanently mounted for every roster member (stable `character.id` keys, no mount/unmount thrash) — presence is opacity, not conditional rendering. `Actor` is now a `motion.div` reading `opacity`/`poseTranslateY` on the outer wrapper and `poseScale` on an inner wrapper (kept separate from the static build/flip `scale` transform so the two never fight over the same CSS property, per CLAUDE.md's "one node, one active animation per property"). Only `transform`/`opacity` are touched, per CLAUDE.md Animation Rules.
+  - `prefers-reduced-motion` wired end-to-end for the first time: `settingsSlice` gained `setReducedMotion`; a new `hooks/useReducedMotionPreference.ts` syncs the OS media query into the store (called once from `App.tsx`). Previously `reducedMotion` was a dead `false` constant with no setter.
+  - Deferred, not in scope this milestone: camera movement, speech synthesis, gestures (`dialogueBeat.gesture`) and slot-to-slot movement (`beat.movements`) as cues — both schema fields still exist but the compiler doesn't turn them into cues yet; that's now Milestone 5 scope alongside camera/lighting transitions.
+  - Verified: `format:check`, `lint`, `typecheck`, and `test` (49 tests, up from 36) all pass with zero errors. `build` succeeds (337 KB / 108 KB gzipped). Browser verification could not be completed in this session — the Chrome automation extension wasn't connected — but the dev server was confirmed to start cleanly on `localhost:5173`.
 
 - Milestone 2 — Sequencer + Subtitles (Timer Clock):
   - Timeline Compiler (`engines/timeline/compiler.ts`) implemented as a pure function: flattens `SceneScript.beats` into a frozen `CompiledBeat[]`, each with a deterministic `durationMs` (dialogue beats estimate reading time from line length, pause beats use their explicit `durationMs`, other beat types use fixed pacing constants — all plus `holdMs`) and the frozen list of entry cues (`subtitle:show/hide/slugline`, `light:change`, `character:enter/exit`) that fire the instant the beat starts. Cue payload types are pulled directly from `ColdOpenEventMap` (no duplicate type system) via a `CueKind` subset.

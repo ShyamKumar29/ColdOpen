@@ -8,6 +8,7 @@ export interface SettingsSlice {
   voiceEnabled: boolean
   setMuted: (muted: boolean) => void
   setCaptionsOn: (captionsOn: boolean) => void
+  setReducedMotion: (reducedMotion: boolean) => void
 }
 
 export const createSettingsSlice: StateCreator<ColdOpenStore, [], [], SettingsSlice> = (set) => ({
@@ -17,4 +18,5 @@ export const createSettingsSlice: StateCreator<ColdOpenStore, [], [], SettingsSl
   voiceEnabled: true,
   setMuted: (muted) => set({ muted }),
   setCaptionsOn: (captionsOn) => set({ captionsOn }),
+  setReducedMotion: (reducedMotion) => set({ reducedMotion }),
 })

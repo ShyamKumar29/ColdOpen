@@ -1,4 +1,4 @@
-import type { ColdOpenEventMap } from '@engines/bus'
+import type { CharacterPose, ColdOpenEventMap } from '@engines/bus'
 import type { Beat, SceneScript } from '@schema'
 import type { AnyCue, CompiledBeat, CueKind, CueList } from './types'
 
@@ -31,6 +31,26 @@ function estimateBeatDurationMs(beat: Beat): number {
   }
 
   return FIXED_BEAT_DURATION_MS[beat.type] + holdMs
+}
+
+/**
+ * Derives a character's performance pose from beat content — never
+ * hardcoded UI behavior, always a pure function of the `SceneScript`
+ * (docs/DECISIONS.md ADR-019). The speaker in a dialogue beat speaks;
+ * everyone else present listens; a pause beat reads as a held, thinking
+ * silence; a reveal is the "oh shit" beat, so everyone present is surprised.
+ */
+function poseForBeat(beat: Beat, characterId: string): CharacterPose {
+  switch (beat.type) {
+    case 'dialogue':
+      return beat.characterId === characterId ? 'speaking' : 'listening'
+    case 'reveal':
+      return 'surprised'
+    case 'beat':
+      return 'thinking'
+    default:
+      return 'idle'
+  }
 }
 
 function makeCue<TKind extends CueKind>(
@@ -94,6 +114,12 @@ function cuesForBeat(beat: Beat, beatIndex: number, script: SceneScript): readon
     }
     if (character.exit?.beat === beatIndex) {
       push('character:exit', { characterId: character.id })
+    }
+
+    const hasEntered = character.entrance.beat <= beatIndex
+    const stillOnStage = character.exit === undefined || beatIndex <= character.exit.beat
+    if (hasEntered && stillOnStage) {
+      push('character:pose', { characterId: character.id, pose: poseForBeat(beat, character.id) })
     }
   }
 

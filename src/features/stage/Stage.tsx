@@ -1,4 +1,5 @@
 import { palette, lightingTokens, stage as stageTokens } from '@design'
+import type { AnimationEngine } from '@engines/animation'
 import type { SceneScript } from '@schema'
 import { useCastRoster } from '@hooks'
 import { useColdOpenStore } from '@store'
@@ -14,6 +15,7 @@ import { deriveInitialLighting } from './deriveStaticFrame'
 
 export interface StageProps {
   script: SceneScript
+  animations: AnimationEngine
 }
 
 /**
@@ -22,7 +24,7 @@ export interface StageProps {
  * (CLAUDE.md's "renderer consumes validated JSON only" rule) or the
  * playback state the Scene Controller writes into the store.
  */
-export function Stage({ script }: StageProps) {
+export function Stage({ script, animations }: StageProps) {
   useCastRoster(script)
 
   const currentLighting = useColdOpenStore((state) => state.currentLighting)
@@ -46,7 +48,7 @@ export function Stage({ script }: StageProps) {
         weather={script.scene.weather}
       />
       <StageFloor />
-      <ActorLayer />
+      <ActorLayer animations={animations} />
       <LightingRig preset={preset} />
       <GrainVignette vignetteStrength={vignetteStrength} />
       <SubtitleOverlay cast={script.cast} />
