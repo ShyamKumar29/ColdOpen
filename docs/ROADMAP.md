@@ -142,7 +142,7 @@ Debug cue log was deferred out of this milestone's scope and is carried over to 
 
 ## Milestone 6 — Groq Integration
 
-**Status:** Not Started
+**Status:** Complete
 
 **Objective:** Any typed premise becomes a scene.
 

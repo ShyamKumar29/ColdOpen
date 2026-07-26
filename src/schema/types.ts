@@ -29,6 +29,7 @@ import type {
   buildSchema,
   silhouetteAccentSchema,
   entranceSchema,
+  characterIdSchema,
 } from './sceneScript.schema'
 
 export type SceneScript = z.infer<typeof sceneScriptSchema>
@@ -63,3 +64,4 @@ export type Facing = z.infer<typeof facingSchema>
 export type Build = z.infer<typeof buildSchema>
 export type SilhouetteAccent = z.infer<typeof silhouetteAccentSchema>
 export type Entrance = z.infer<typeof entranceSchema>
+export type CharacterId = z.infer<typeof characterIdSchema>

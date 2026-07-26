@@ -109,12 +109,20 @@ export const exitSchema = z.object({
 
 export const silhouetteAccentSchema = z.enum(['hat', 'coat', 'briefcase', 'cane', 'cape', 'none'])
 
+/**
+ * Shared by every field that references a `Character.id`: `character.id`
+ * itself, `dialogueBeat.characterId`, and `movement.characterId`. A single
+ * schema keeps the slug format consistent everywhere instead of three
+ * independently hand-typed string schemas drifting apart.
+ */
+export const characterIdSchema = z
+  .string()
+  .min(1)
+  .max(40)
+  .regex(/^[a-z0-9-]+$/, 'characterId must be a lowercase slug')
+
 export const characterSchema = z.object({
-  id: z
-    .string()
-    .min(1)
-    .max(40)
-    .regex(/^[a-z0-9-]+$/, 'Character id must be a lowercase slug'),
+  id: characterIdSchema,
   name: z.string().min(1).max(40),
   archetype: archetypeSchema,
   build: buildSchema.optional(),
@@ -197,7 +205,7 @@ export const facingSchema = z.enum(['left', 'right', 'front'])
 export const travelStyleSchema = z.enum(['walk', 'rush', 'creep', 'drift'])
 
 export const movementSchema = z.object({
-  characterId: z.string().min(1).max(40),
+  characterId: characterIdSchema,
   to: stageSlotSchema,
   style: travelStyleSchema,
   facing: facingSchema.optional(),
@@ -244,7 +252,7 @@ export const actionBeatSchema = beatBaseSchema.extend({
 
 export const dialogueBeatSchema = beatBaseSchema.extend({
   type: z.literal('dialogue'),
-  characterId: z.string().min(1).max(40),
+  characterId: characterIdSchema,
   line: z.string().min(1).max(180),
   parenthetical: z.string().max(40).optional(),
   delivery: deliverySchema.optional(),

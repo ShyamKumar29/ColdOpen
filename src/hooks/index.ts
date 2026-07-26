@@ -6,3 +6,4 @@
 export * from './useCastRoster'
 export * from './useSceneController'
 export * from './useReducedMotionPreference'
+export * from './useSceneGeneration'
