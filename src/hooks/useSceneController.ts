@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createEventBus } from '@engines/bus'
 import { createSceneController } from '@engines/controller'
 import type { SceneController } from '@engines/controller'
@@ -8,6 +8,8 @@ import { createCameraEngine } from '@engines/camera'
 import type { CameraRig } from '@engines/camera'
 import { createSpeechEngine } from '@engines/speech'
 import type { SpeechEngine } from '@engines/speech'
+import { createMusicEngine } from '@engines/music'
+import type { MusicCue, MusicEngine } from '@engines/music'
 import { poseTokens } from '@design'
 import type { SceneScript } from '@schema'
 import { useColdOpenStore } from '@store'
@@ -17,6 +19,7 @@ export interface SceneControllerBridge {
   animations: AnimationEngine
   camera: CameraRig
   speech: SpeechEngine
+  music: MusicEngine
 }
 
 /**
@@ -38,6 +41,7 @@ export function useSceneController(script: SceneScript | null): SceneControllerB
   const [controller] = useState(() => createSceneController(bus, speech))
   const [animations] = useState(() => createAnimationEngine())
   const [camera] = useState(() => createCameraEngine())
+  const [music] = useState(() => createMusicEngine())
 
   const setPhase = useColdOpenStore((state) => state.setPhase)
   const setBeatIndex = useColdOpenStore((state) => state.setBeatIndex)
@@ -47,6 +51,21 @@ export function useSceneController(script: SceneScript | null): SceneControllerB
   const setCurrentLighting = useColdOpenStore((state) => state.setCurrentLighting)
   const setClockSource = useColdOpenStore((state) => state.setClockSource)
   const reducedMotion = useColdOpenStore((state) => state.reducedMotion)
+  const muted = useColdOpenStore((state) => state.muted)
+  const musicVolume = useColdOpenStore((state) => state.musicVolume)
+
+  // `controller.load()` enters beat 0 to prime the stage's initial visual
+  // state (lighting, camera, slugline) before Play is ever pressed (CLAUDE.md
+  // "renderer consumes validated JSON only" doesn't cover transport timing,
+  // but the Scene Controller's own contract does: "without starting the
+  // clock"). Its opening `music:start` cue rides along on that same
+  // `enterBeat`, so without this gate the Music Engine would produce audible
+  // output the instant a scene loads. Stash the cue and apply it for real
+  // only once `transport:play` actually fires — the Scene Controller remains
+  // the sole authority that starts playback; this only delays when the
+  // Music Engine is allowed to act on a cue it already received.
+  const hasPlaybackStartedRef = useRef(false)
+  const pendingStartCueRef = useRef<MusicCue | null>(null)
 
   useEffect(() => {
     const syncPhase = (): void => {
@@ -68,6 +87,14 @@ export function useSceneController(script: SceneScript | null): SceneControllerB
         setCurrentLighting(preset, transition, durationMs),
       ),
       bus.on('camera:move', (cue) => camera.applyMove(cue, reducedMotion)),
+      bus.on('music:start', (cue) => {
+        pendingStartCueRef.current = cue
+        if (hasPlaybackStartedRef.current) music.applyStart(cue, reducedMotion)
+      }),
+      bus.on('music:mood', (cue) => music.applyMood(cue, reducedMotion)),
+      bus.on('music:duck', ({ to }) => music.duck(to, reducedMotion)),
+      bus.on('music:unduck', () => music.unduck(reducedMotion)),
+      bus.on('music:sting', ({ stinger }) => music.sting(stinger)),
       bus.on('character:enter', ({ characterId }) => {
         const active = useColdOpenStore.getState().activeCharacters
         if (!active.includes(characterId)) setActiveCharacters([...active, characterId])
@@ -96,11 +123,47 @@ export function useSceneController(script: SceneScript | null): SceneControllerB
         controller.notifySpeechUnavailable()
         syncPhase()
       }),
-      bus.on('transport:play', syncPhase),
-      bus.on('transport:pause', syncPhase),
-      bus.on('transport:stop', syncPhase),
-      bus.on('transport:restart', syncPhase),
-      bus.on('transport:complete', syncPhase),
+      bus.on('transport:play', () => {
+        syncPhase()
+        if (hasPlaybackStartedRef.current) {
+          music.resume()
+        } else {
+          hasPlaybackStartedRef.current = true
+          if (pendingStartCueRef.current) music.applyStart(pendingStartCueRef.current, reducedMotion)
+        }
+      }),
+      bus.on('transport:pause', () => {
+        syncPhase()
+        music.pause()
+      }),
+      // The controller re-enters beat 0 (re-firing the `music:start` cue)
+      // *before* emitting `transport:stop` — `music.stop()` here runs last
+      // and wins, so playback stays silent. Rearming `hasPlaybackStartedRef`
+      // makes the next `transport:play` treat this like a first play again,
+      // reapplying that already-stashed `pendingStartCueRef` cue instead of
+      // calling `music.resume()` on a transport that was fully stopped.
+      bus.on('transport:stop', () => {
+        syncPhase()
+        music.stop()
+        hasPlaybackStartedRef.current = false
+      }),
+      // `restart()` also re-enters beat 0 before emitting this event. When
+      // playback had already started, that beat-0 `music:start` cue was
+      // applied immediately (see the `music:start` handler below) and this
+      // is a no-op; when it hadn't (e.g. restarting right after a Stop),
+      // this is what actually (re)starts the score.
+      bus.on('transport:restart', () => {
+        syncPhase()
+        if (!hasPlaybackStartedRef.current) {
+          hasPlaybackStartedRef.current = true
+          if (pendingStartCueRef.current) music.applyStart(pendingStartCueRef.current, reducedMotion)
+        }
+      }),
+      bus.on('transport:complete', () => {
+        syncPhase()
+        music.fadeOutAndStop(reducedMotion)
+        hasPlaybackStartedRef.current = false
+      }),
     ]
 
     return () => unsubscribers.forEach((unsubscribe) => unsubscribe())
@@ -110,6 +173,7 @@ export function useSceneController(script: SceneScript | null): SceneControllerB
     animations,
     camera,
     speech,
+    music,
     reducedMotion,
     setPhase,
     setBeatIndex,
@@ -122,6 +186,9 @@ export function useSceneController(script: SceneScript | null): SceneControllerB
 
   useEffect(() => {
     if (!script) return
+    hasPlaybackStartedRef.current = false
+    pendingStartCueRef.current = null
+    music.stop()
     controller.load(script)
     setPhase(controller.getPhase())
     setActiveCharacters([])
@@ -131,7 +198,7 @@ export function useSceneController(script: SceneScript | null): SceneControllerB
     // instead of their cast-derived values — an acceptable, graceful
     // fallback (not a stall or an error), not something worth blocking on.
     void speech.castVoices(script.cast)
-  }, [script, controller, speech, setPhase, setActiveCharacters])
+  }, [script, controller, speech, music, setPhase, setActiveCharacters])
 
   useEffect(() => {
     let frame = requestAnimationFrame(function step(now) {
@@ -143,6 +210,15 @@ export function useSceneController(script: SceneScript | null): SceneControllerB
   }, [animations, camera])
 
   useEffect(() => () => controller.destroy(), [controller])
+  useEffect(() => () => music.stop(), [music])
 
-  return { controller, animations, camera, speech }
+  useEffect(() => {
+    music.setMuted(muted)
+  }, [music, muted])
+
+  useEffect(() => {
+    music.setUserVolume(musicVolume)
+  }, [music, musicVolume])
+
+  return { controller, animations, camera, speech, music }
 }

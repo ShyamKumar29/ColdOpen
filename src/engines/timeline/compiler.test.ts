@@ -279,4 +279,69 @@ describe('compileTimeline', () => {
     expect(Object.isFrozen(timeline[0])).toBe(true)
     expect(Object.isFrozen(timeline[0]?.cues)).toBe(true)
   })
+
+  it('emits exactly one music:start cue, on the opening beat', () => {
+    const timeline = compileTimeline(heistLibrary)
+    const startCues = timeline.flatMap((beat) =>
+      beat.cues.filter((cue) => cue.kind === 'music:start'),
+    )
+
+    expect(startCues).toHaveLength(1)
+    expect(timeline[0]?.cues).toContainEqual(
+      expect.objectContaining({
+        kind: 'music:start',
+        payload: expect.objectContaining({ state: 'intro' }),
+      }),
+    )
+  })
+
+  it('emits music:mood only on beats where the music plan actually changes', () => {
+    const timeline = compileTimeline(heistLibrary)
+    const moodCueIndices = timeline
+      .map((beat, index) => ({
+        index,
+        hasMood: beat.cues.some((cue) => cue.kind === 'music:mood'),
+      }))
+      .filter((entry) => entry.hasMood)
+      .map((entry) => entry.index)
+
+    // b2 repeats b1's arrangement exactly (both default to ambient/tense/0.4) and is
+    // deliberately excluded — every other beat changes state, mood, or intensity
+    // from the one before it (b3/b4's authored intensity overrides, b5's pause ->
+    // tension, b6's authored swell -> climax, b7's closing beat -> silence).
+    expect(moodCueIndices).toEqual([1, 3, 4, 5, 6, 7])
+  })
+
+  it('emits music:duck on every dialogue beat and music:unduck on every other beat', () => {
+    const timeline = compileTimeline(heistLibrary)
+
+    heistLibrary.beats.forEach((beat, index) => {
+      const cues = timeline[index]?.cues ?? []
+      if (beat.type === 'dialogue') {
+        expect(cues).toContainEqual(expect.objectContaining({ kind: 'music:duck' }))
+        expect(cues.some((cue) => cue.kind === 'music:unduck')).toBe(false)
+      } else {
+        expect(cues).toContainEqual(expect.objectContaining({ kind: 'music:unduck' }))
+        expect(cues.some((cue) => cue.kind === 'music:duck')).toBe(false)
+      }
+    })
+  })
+
+  it('emits music:sting on the reveal beat, carrying the authored stinger', () => {
+    const timeline = compileTimeline(heistLibrary)
+    const revealIndex = heistLibrary.beats.findIndex((beat) => beat.type === 'reveal')
+
+    expect(timeline[revealIndex]?.cues).toContainEqual(
+      expect.objectContaining({ kind: 'music:sting', payload: { stinger: 'hit' } }),
+    )
+  })
+
+  it('is deterministic in its music derivation — the same script compiles to the same music cues twice', () => {
+    const musicCues = (timeline: ReturnType<typeof compileTimeline>) =>
+      timeline.map((beat) => beat.cues.filter((cue) => cue.kind.startsWith('music:')))
+
+    expect(musicCues(compileTimeline(heistLibrary))).toEqual(
+      musicCues(compileTimeline(heistLibrary)),
+    )
+  })
 })

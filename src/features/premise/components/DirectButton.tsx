@@ -7,9 +7,10 @@ export interface DirectButtonProps {
 /**
  * The submit gesture (docs/ARCHITECTURE.md section 3: "AudioContext + TTS
  * unlock gesture"). A plain `<button type="submit">` inside `PremiseScreen`'s
- * `<form>` — this click is also the designated user gesture a future
- * Milestone 7 `Tone.start()` call hangs off, kept minimal here since no
- * audio engine exists yet (CLAUDE.md: stay within milestone scope).
+ * `<form>` — its click is what `PremiseScreen.handleSubmit` uses to call
+ * `unlockAudio()`, since the Music Engine isn't constructed until later
+ * (`StageScreen` mounts once the scene is ready), well outside this click's
+ * own call stack.
  */
 export function DirectButton({ disabled }: DirectButtonProps) {
   return (

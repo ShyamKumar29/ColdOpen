@@ -3,9 +3,11 @@ import type { ColdOpenEventMap, ColdOpenEventName } from '@engines/bus'
 /**
  * The subset of the event taxonomy a compiled timeline can produce.
  * Deliberately a subset, not the full `ColdOpenEventName` union — the
- * compiler only emits playback-data cues; camera/particle/music directions
- * are read straight off the `SceneScript` by their own engines starting
- * Milestone 4+.
+ * compiler only emits playback-data cues; particle directions are read
+ * straight off the `SceneScript` by their own engine starting a later
+ * milestone. Music cues (ADR-030) follow the same pattern `camera:move`
+ * already established in Milestone 5: fully resolved by the compiler's
+ * music plan, never requiring the Music Engine to reason about beats.
  */
 export type CueKind =
   | 'subtitle:show'
@@ -17,6 +19,11 @@ export type CueKind =
   | 'character:pose'
   | 'speech:request'
   | 'camera:move'
+  | 'music:start'
+  | 'music:mood'
+  | 'music:duck'
+  | 'music:unduck'
+  | 'music:sting'
 
 export interface Cue<TKind extends ColdOpenEventName = CueKind> {
   readonly id: string

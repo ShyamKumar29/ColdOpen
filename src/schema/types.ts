@@ -18,6 +18,8 @@ import type {
   lightingDirectionSchema,
   lightingTransitionSchema,
   musicDirectionSchema,
+  musicActionSchema,
+  musicStingerSchema,
   particleDirectionSchema,
   movementSchema,
   settingSchema,
@@ -52,6 +54,8 @@ export type CameraIntensity = z.infer<typeof cameraIntensitySchema>
 export type LightingDirection = z.infer<typeof lightingDirectionSchema>
 export type LightingTransition = z.infer<typeof lightingTransitionSchema>
 export type MusicDirection = z.infer<typeof musicDirectionSchema>
+export type MusicAction = z.infer<typeof musicActionSchema>
+export type MusicStinger = z.infer<typeof musicStingerSchema>
 export type ParticleDirection = z.infer<typeof particleDirectionSchema>
 export type Movement = z.infer<typeof movementSchema>
 

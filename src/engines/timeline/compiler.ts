@@ -8,6 +8,9 @@ import type {
   SceneScript,
   StageSlot,
 } from '@schema'
+import { musicDuckLevel } from '@design'
+import { deriveMusicPlan } from './musicPlan'
+import type { MusicPlanBeat } from './musicPlan'
 import type { AnyCue, CompiledBeat, CueKind, CueList } from './types'
 
 /**
@@ -167,6 +170,46 @@ function cameraForBeat(
   }
 }
 
+/**
+ * Resolves a beat's music cues from the precomputed `MusicPlanBeat` (never
+ * re-deriving state itself — `deriveMusicPlan` already did that once for the
+ * whole script). `music:start` fires exactly once, on the opening beat;
+ * every later beat fires `music:mood` only when the plan's state/mood/
+ * intensity actually changed from the previous beat, so re-entering the same
+ * arrangement (e.g. two consecutive `ambient` beats) is a no-op cue-wise,
+ * matching the idempotent-handler rule every other cue in this file follows.
+ * Dialogue ducking is derived independently of the music plan, straight from
+ * the beat's own type — it observes "is this beat spoken dialogue," the same
+ * signal `subtitle:show`'s `characterId` already carries, not the music
+ * plan's dramatic-arc state.
+ */
+function musicCuesForBeat(
+  beat: Beat,
+  entry: MusicPlanBeat,
+  previous: MusicPlanBeat | undefined,
+  push: <TKind extends CueKind>(kind: TKind, payload: ColdOpenEventMap[TKind]) => void,
+): void {
+  const payload = { state: entry.state, mood: entry.mood, intensity: entry.intensity }
+
+  if (!previous) {
+    push('music:start', payload)
+  } else if (
+    previous.state !== entry.state ||
+    previous.mood !== entry.mood ||
+    previous.intensity !== entry.intensity
+  ) {
+    push('music:mood', payload)
+  }
+
+  if (entry.stinger) push('music:sting', { stinger: entry.stinger })
+
+  if (beat.type === 'dialogue') {
+    push('music:duck', { to: musicDuckLevel })
+  } else {
+    push('music:unduck', {})
+  }
+}
+
 function makeCue<TKind extends CueKind>(
   beatIndex: number,
   sequence: number,
@@ -187,6 +230,8 @@ function cuesForBeat(
   beatIndex: number,
   script: SceneScript,
   characterSlots: ReadonlyMap<string, StageSlot | null>,
+  musicEntry: MusicPlanBeat,
+  previousMusicEntry: MusicPlanBeat | undefined,
 ): readonly AnyCue[] {
   const cues: AnyCue[] = []
   let sequence = 0
@@ -241,6 +286,7 @@ function cuesForBeat(
   }
 
   push('camera:move', cameraForBeat(beat, activeCharacterIds.length, characterSlots))
+  musicCuesForBeat(beat, musicEntry, previousMusicEntry, push)
 
   for (const character of script.cast) {
     if (character.entrance.beat === beatIndex) {
@@ -267,13 +313,21 @@ function cuesForBeat(
  */
 export function compileTimeline(script: SceneScript): CueList {
   const characterSlots = resolveInitialSlots(script.cast)
+  const musicPlan = deriveMusicPlan(script)
 
   const compiled = script.beats.map<CompiledBeat>((beat, index) =>
     Object.freeze({
       index,
       id: beat.id,
       durationMs: estimateBeatDurationMs(beat),
-      cues: cuesForBeat(beat, index, script, characterSlots),
+      cues: cuesForBeat(
+        beat,
+        index,
+        script,
+        characterSlots,
+        musicPlan[index]!,
+        musicPlan[index - 1],
+      ),
       speechCharacterId: beat.type === 'dialogue' ? beat.characterId : undefined,
     }),
   )

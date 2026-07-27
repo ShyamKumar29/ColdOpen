@@ -400,6 +400,26 @@ This document captures the architectural decisions already made for Cold Open. I
 
 ---
 
+## ADR-030
+
+**Decision:** The Music Engine's arrangement state — `MusicState` (`intro`/`ambient`/`tension`/`climax`/`resolution`/`silence`) — is not schema data. It is derived per beat by the Timeline Compiler (`deriveMusicPlan`, a pure `SceneScript -> MusicPlanBeat[]` function) and carried on `music:start`/`music:mood` cues, the same pattern `CharacterPose` (ADR-019) and `CameraShot`/`CameraFocus` (ADR-024) already established. Dialogue ducking (`music:duck`/`music:unduck`) is derived independently, straight from each beat's own type, not from the music plan's dramatic-arc state. The Music Engine itself never touches `Tone.js`/`AudioContext` directly — that lives behind an injectable `ToneMusicAdapter` boundary in `engines/music/toneAdapter.ts`, mirroring `SpeechAdapter`'s isolation of `window.speechSynthesis`.
+
+**Context:** Milestone 7 needed the score to react to genre/mood, beat intensity, dramatic moments, and dialogue gaps, while staying deterministic (the same scene must always produce the same music) and never touching playback timing (CLAUDE.md: "the Music Engine ... it follows, never leads"). The schema already carries an optional per-beat `beat.music` direction (`action`/`mood`/`intensity`/`stinger`), but — same as camera and pose before it — requiring every seed script or generated scene to author music on every beat would be both a schema burden and a departure from how every other derived-vocabulary engine in this codebase already works.
+
+**Reasoning:** Treating `MusicState` as compiler-derived, exactly like `poseForBeat` and `cameraForBeat`, keeps the Music Engine a pure interpolator: it maps a resolved `{state, mood, intensity}` cue to gain/filter/chord parameters via `design/music.ts`'s token tables and never reasons about beats, characters, or dramatic structure itself (CLAUDE.md — "never tightly couple engines"). The derivation gives the scene's opening and closing beats a stronger claim on the state than any individual beat's type or authored direction — a script always opens on `intro` and closes on `resolution` (or `silence` for a `cutToBlack` outro) — mirroring the precedence ADR-024 already gives a reveal beat's shot over its authored camera move. An authored `beat.music.action` of `swell`/`stop` can still push a non-boundary beat to `climax`/`silence` early, and an authored `mood`/`intensity`/`stinger` always overrides its derived default; only the scene-boundary states are protected.
+
+Ducking is deliberately *not* driven by `speech:start`/`speech:end` (the literal example CLAUDE.md's Event Bus Rules give of legitimate cross-engine observation), because tying Music to Speech would mean ducking only works when TTS is actually available — and this product must be "excellent with sound off" (ADR-005's mandate for the timer-clock fallback). Deriving duck/unduck straight from `beat.type === 'dialogue'` at the same beat-entry point every other cue fires from means ducking works identically whether the speech clock or the timer clock is driving playback, and never adds a dependency from `engines/music` to `engines/speech`.
+
+The `ToneMusicAdapter` boundary exists for the same reason `SpeechAdapter` does: `Tone.js` requires a real `AudioContext`, which unit tests can't exercise, so every real synthesis call is isolated in `toneAdapter.ts` and `musicEngine.ts`'s cue-handling, idempotency, and gain math (mute × volume × duck, combined and ramped as one) are tested against a fake adapter instead (`musicEngine.test.ts`).
+
+`AudioContext` unlock (`engines/music/unlock.ts`'s `unlockAudio()`) is a standalone function, not a `MusicEngine` method, called directly from `PremiseScreen.handleSubmit` inside the Direct button's click. The `MusicEngine` itself isn't constructed until `StageScreen` mounts once the scene is ready — seconds later, well outside the click's own call stack — so tying unlock to the engine instance would miss the actual user gesture entirely.
+
+**Trade-offs:** The music plan's dramatic arc (state) and its ducking (dialogue-driven) are two independently-derived signals layered on the same audio graph rather than one unified model; this is intentional (they answer different questions — "how dramatic is this beat" vs. "is someone talking right now") but means a future maintainer must update two functions, not one, if the ducking rule ever needs to consider dramatic state. As with ADR-019/ADR-024, the state vocabulary is a small, hand-picked set matched to what a synthesis-only score can meaningfully express, not extensible by scene content without a code change here.
+
+**Status:** Accepted
+
+---
+
 ## ADR-029
 
 **Decision:** An untrusted candidate document passes through a **pre-validation coercion layer** (`schema/coerce/`) before `sceneScriptSchema.safeParse`, not after. The layer resolves out-of-vocabulary enum values through a four-step ladder (exact member → canonical member → curated alias → longest embedded member) and fills in bookkeeping the renderer can derive, then hands the result to the *same* Zod parse and referential-integrity check every `SceneScript` has always gone through. Alongside it, the `setting`, `genre`, and `mood` vocabularies were expanded, and `beats[].id` was removed from what the model is asked to author.

@@ -2,7 +2,7 @@ import { palette, fontFamily, typeScale, spacing, stage as stageTokens } from '@
 import type { SceneScript } from '@schema'
 import { useSceneController } from '@hooks'
 import { useColdOpenStore } from '@store'
-import { TransportControls } from '@features/transport'
+import { TransportControls, MusicControls } from '@features/transport'
 import { Stage } from './Stage'
 
 export interface StageScreenProps {
@@ -17,6 +17,10 @@ export interface StageScreenProps {
 export function StageScreen({ script }: StageScreenProps) {
   const { controller, animations, camera } = useSceneController(script)
   const phase = useColdOpenStore((state) => state.phase)
+  const muted = useColdOpenStore((state) => state.muted)
+  const musicVolume = useColdOpenStore((state) => state.musicVolume)
+  const setMuted = useColdOpenStore((state) => state.setMuted)
+  const setMusicVolume = useColdOpenStore((state) => state.setMusicVolume)
 
   return (
     <div
@@ -57,7 +61,15 @@ export function StageScreen({ script }: StageScreenProps) {
         >
           {script.genre} &middot; {script.mood}
         </span>
-        <TransportControls phase={phase} controller={controller} />
+        <div className="flex items-center" style={{ gap: spacing.lg }}>
+          <MusicControls
+            muted={muted}
+            volume={musicVolume}
+            onToggleMuted={() => setMuted(!muted)}
+            onVolumeChange={setMusicVolume}
+          />
+          <TransportControls phase={phase} controller={controller} />
+        </div>
       </footer>
     </div>
   )

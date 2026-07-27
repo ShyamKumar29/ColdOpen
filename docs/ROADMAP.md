@@ -168,7 +168,7 @@ Debug cue log was deferred out of this milestone's scope and is carried over to 
 
 ## Milestone 7 — Music Engine
 
-**Status:** Not Started
+**Status:** Complete
 
 **Objective:** Score.
 

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { palette, typeScale, spacing, fontFamily, stage as stageTokens } from '@design'
+import { unlockAudio } from '@engines/music'
 import { useColdOpenStore } from '@store'
 import { PremiseInput } from './components/PremiseInput'
 import { ExampleChips } from './components/ExampleChips'
@@ -28,6 +29,12 @@ export function PremiseScreen() {
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault()
     if (!trimmed) return
+    // The Direct click is the designated user gesture for unlocking audio
+    // (docs/ARCHITECTURE.md section 3; `DirectButton.tsx`'s doc comment).
+    // Fire-and-forget: nothing here depends on the AudioContext actually
+    // being resumed yet, only on the resume call happening inside this
+    // click handler.
+    void unlockAudio()
     setPremise(trimmed)
     setStatus('generating')
   }

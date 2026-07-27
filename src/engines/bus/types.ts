@@ -1,4 +1,11 @@
-import type { CameraIntensity, CameraMove, LightingPreset, LightingTransition } from '@schema'
+import type {
+  CameraIntensity,
+  CameraMove,
+  LightingPreset,
+  LightingTransition,
+  Mood,
+  MusicStinger,
+} from '@schema'
 
 /**
  * A character's derived, runtime-only performance state — never schema
@@ -18,6 +25,16 @@ export type CharacterPose = 'idle' | 'speaking' | 'listening' | 'surprised' | 't
  */
 export type CameraShot = 'wide' | 'medium' | 'close' | 'twoShot' | 'overShoulder' | 'reveal'
 export type CameraFocus = 'left' | 'center' | 'right' | 'wide'
+
+/**
+ * The Music Engine's derived arrangement state — never schema data, the same
+ * reasoning as `CharacterPose` (ADR-019) and `CameraShot`/`CameraFocus`
+ * (ADR-024). Computed per beat by the Timeline Compiler from beat type,
+ * position in the scene, and any authored `beat.music` override, and
+ * consumed by the Music Engine, which never reasons about beats itself
+ * (docs/DECISIONS.md ADR-030).
+ */
+export type MusicState = 'intro' | 'ambient' | 'tension' | 'climax' | 'resolution' | 'silence'
 
 /**
  * Event taxonomy for the Cold Open event bus (docs/ARCHITECTURE.md section 8).
@@ -68,11 +85,13 @@ export interface ColdOpenEventMap {
   'light:change': { preset: LightingPreset; transition: LightingTransition; durationMs?: number }
   'light:flicker': { preset: LightingPreset }
 
-  'music:start': { mood: string }
-  'music:mood': { mood: string }
+  /** The only cue that (re)starts the score, fired once at the scene's opening beat. Fully resolved by the Timeline Compiler's music plan, mirroring `camera:move` (ADR-030). */
+  'music:start': { state: MusicState; mood: Mood; intensity: number }
+  /** Crossfades to a new arrangement. Fires only when the compiled music plan's state/mood/intensity actually changes beat to beat — idempotent by construction. */
+  'music:mood': { state: MusicState; mood: Mood; intensity: number }
   'music:duck': { to: number }
   'music:unduck': Record<string, never>
-  'music:sting': { stinger: string }
+  'music:sting': { stinger: MusicStinger }
   'music:stop': Record<string, never>
 
   'character:enter': { characterId: string }
